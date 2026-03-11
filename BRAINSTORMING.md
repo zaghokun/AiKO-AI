@@ -44,10 +44,19 @@ AI companion dengan personality Anjou-style (caring, energetic, supportive) yang
   - Information lookup
   - Daily briefings
 
-### **Deployment**
-- **Phase 1:** Local (personal laptop)
-- **Phase 2:** Cloud (accessible dari mana saja)
-- **Phase 3:** Mobile app (pocket companion)
+### **Deployment Strategy**
+- **Phase 1:** Local Development (laptop - development environment)
+- **Phase 2:** Cloud Deployment (VPS - accessible 24/7)
+- **Phase 3:** Mobile app (React Native/Flutter - pocket companion)
+
+### **Tech Approach**
+**Gemini API (Google AI Studio)** - Cloud-first AI
+- ✅ No local GPU needed
+- ✅ Free tier for personal use
+- ✅ Easy fine-tuning
+- ✅ Fast & reliable inference
+- ✅ Simpler deployment (just API calls)
+- ✅ 50% faster development timeline
 
 ---
 
@@ -114,7 +123,7 @@ You'd be so boring without me, admit it! 😏"
 
 ---
 
-## 💻 HARDWARE & MODEL
+## 💻 HARDWARE & LLM
 
 ### **Hardware Specs**
 ```
@@ -126,33 +135,45 @@ GPU: NVIDIA RTX 5050 Laptop
   - TDP: 100W
 Storage: 476.9 GB + 119.2 GB SSD
 
-✅ Verdict: Perfect untuk 7B-8B models
+✅ Sufficient untuk development (no GPU needed for inference!)
 ```
 
 ### **LLM Model**
 
-**Choice:** Llama 3.1 8B Instruct (Meta)
+**Choice:** Google Gemini (via Google AI Studio)
 
-**Why:**
+**Models Available:**
+- **Gemini 2.0 Flash** - Fast, efficient, FREE tier ⭐
+- **Gemini 1.5 Pro** - Higher quality, longer context
+- **Gemini 1.5 Flash** - Balanced speed & quality
+
+**Why Gemini:**
 - ✅ Excellent conversation quality
-- ✅ 8K context window
-- ✅ Strong reasoning & personality
-- ✅ Open source, commercial use OK
-- ✅ Proven untuk fine-tuning
+- ✅ 1M+ context window (massive!)
+- ✅ Free tier: 1,500 requests/day
+- ✅ Built-in function calling (for assistant features)
+- ✅ Easy fine-tuning via Google AI Studio
+- ✅ Multimodal ready (text, image, video)
+- ✅ No local GPU needed
+- ✅ Fast inference (<2 seconds)
+- ✅ Simple deployment
 
-**Performance Estimates:**
+**Performance:**
 ```
-Inference: ~25-40 tokens/second
-VRAM Usage: ~6-7 GB (4-bit quantization)
-Response Time: 2-5 seconds
-Context Window: 8K tokens (~6000 words)
+Inference: <1-2 seconds (Google's infrastructure)
+Cost: FREE for personal use (free tier)
+Response Time: 1-3 seconds end-to-end
+Context Window: 1M tokens (Gemini 1.5 Pro)
+Rate Limits (Free): 15 RPM, 1,500 RPD
 ```
 
-**Installation:**
+**Setup:**
 ```bash
-# Install Ollama from ollama.ai
-ollama pull llama3.1:8b
-ollama run llama3.1:8b
+# Install Google Generative AI SDK
+pip install google-generativeai
+
+# Get API key from Google AI Studio
+# https://aistudio.google.com/apikey
 ```
 
 ---
@@ -170,8 +191,9 @@ Pydantic (Data validation)
 
 **LLM Infrastructure:**
 ```python
-Ollama (Inference engine)
-Langchain or LlamaIndex (Orchestration)
+Google Generative AI SDK (Gemini)
+Function Calling (Native Gemini)
+Optional: Langchain (if needed for complex chains)
 ```
 
 **Databases:**
@@ -244,9 +266,9 @@ atau Flutter (better performance)
    │          │          │
    ▼          ▼          ▼
 ┌─────┐  ┌────────┐  ┌─────────┐
-│Ollama│  │PostgreS│  │ Qdrant  │
-│Llama │  │   QL   │  │(Vectors)│
-│3.1 8B│  │        │  │         │
+│Gemini│  │PostgreS│  │ Qdrant  │
+│ API  │  │   QL   │  │(Vectors)│
+│      │  │        │  │         │
 └─────┘  └────────┘  └─────────┘
 ```
 
@@ -289,9 +311,9 @@ User sends: "I'm stressed about work again..."
    - Recent conversation
    - User's new message
    ↓
-5. Send to Ollama (Llama 3.1 8B fine-tuned)
+5. Send to Gemini API (fine-tuned model)
    ↓
-6. Stream response to frontend (WebSocket)
+6. Stream response to frontend (WebSocket/SSE)
    ↓
 7. Save interaction:
    - Store message (PostgreSQL)
@@ -389,102 +411,319 @@ AiKO-AI/
 
 ## 🛣️ DEVELOPMENT ROADMAP
 
-### **PHASE 1: Quick Wins & Setup (Week 1-2)**
+**Total Timeline:** 6-8 weeks (vs 12-14 weeks with local LLM)
 
-**Goal:** Early features + Fine-tuning prep
+---
 
-#### **Part A: Early Development Features (Week 1)**
-- [ ] Install Ollama
-- [ ] Test base Llama 3.1 8B
+### **PHASE 1: Setup & Basic Chat (Week 1)**
+
+**Goal:** Working chat with Aiko personality + Web launcher
+
+#### **Tasks:**
+- [ ] **Google AI Studio Setup**
+  - [ ] Create Google account / use existing
+  - [ ] Get API key from https://aistudio.google.com/apikey
+  - [ ] Test API dengan Python
+  - [ ] Review rate limits & pricing
+  
+- [ ] **Backend Setup**
+  - [ ] Initialize FastAPI project
+  - [ ] Project structure setup
+  - [ ] Install dependencies:
+    ```bash
+    pip install fastapi uvicorn google-generativeai python-dotenv pydantic
+    ```
+  - [ ] Configure environment (.env)
+  - [ ] Basic Gemini integration
+  
 - [ ] **Web Launcher Feature** (Early win! 🎯)
   - [ ] Command detection ("buka YouTube", "open Instagram")
   - [ ] Website mapping (YouTube, Instagram, TikTok, Facebook, Twitter, dll)
   - [ ] Execute browser command (Windows)
   - [ ] Natural language variants ("buka YT", "tolong bukain IG")
   - [ ] Response feedback ("Oke, bukain YouTube ya~")
-  - [ ] Test with real usage
-
-#### **Part B: Fine-tuning Preparation (Week 1-2)**
-- [ ] Design personality framework
-- [ ] Create dataset structure (JSONL)
-- [ ] Write 100 manual core conversations
-  - 40-50 caring/support scenarios
-  - 30-40 daily conversation
-  - 20-30 playful teasing
-  - 10-20 assistant commands (web launcher, reminders)
-- [ ] Generate 400-900 variations dengan GPT-4
-- [ ] Quality control & clean dataset
-- [ ] Split dataset (train/validation: 90/10)
+  - [ ] Gemini function calling integration
+  
+- [ ] **Aiko Personality Prompt**
+  - [ ] Design system instruction
+  - [ ] Test personality consistency
+  - [ ] Iterate on prompt engineering
+  - [ ] Test Anjou-style responses
 
 **Deliverables:**
-- `conversations.jsonl` (500-1000 examples)
-  - Companionship scenarios: 400-800 examples
-  - Assistant commands: 100-200 examples
-- `validation.jsonl` (50-100 examples)
-- Dataset statistics report
-
-**Web Launcher Feature:**
-- ✅ Working prototype (dapat buka websites)
-- ✅ Natural language detection
-- ✅ Response personality consistent
-- ✅ Test coverage for major sites
+- ✅ Working API with Gemini
+- ✅ Web launcher functional
+- ✅ Basic Aiko personality
+- ✅ Test coverage for chat & commands
 
 ---
 
-### **PHASE 2: Fine-tuning (Week 2-3)**
+### **PHASE 2: Memory System (Week 2-3)**
 
-**Goal:** Fine-tune Llama 3.1 8B dengan personality dataset
+**Goal:** RAG-based long-term memory
+
+**Week 2:**
+- [ ] **PostgreSQL Setup**
+  - [ ] Install PostgreSQL locally or use Supabase
+  - [ ] Create database schema:
+    - Users table
+    - Messages table
+    - Sessions table
+  - [ ] SQLAlchemy models
+  - [ ] Alembic migrations
+  
+- [ ] **Basic Memory**
+  - [ ] Save chat history to database
+  - [ ] Load recent conversation (last 10-20 messages)
+  - [ ] Context injection into prompts
+  
+**Week 3:**
+- [ ] **Vector Database (Qdrant)**
+  - [ ] Install Qdrant (Docker or cloud)
+  - [ ] Setup collections
+  - [ ] Choose embedding model (sentence-transformers)
+  
+- [ ] **RAG Implementation**
+  - [ ] Message → embedding pipeline
+  - [ ] Store embeddings in Qdrant
+  - [ ] Semantic search (top K similar memories)
+  - [ ] Memory recall integration
+  - [ ] Fact extraction
+  
+**Deliverables:**
+- ✅ Working memory system
+- ✅ RAG pipeline functional
+- ✅ Memory recall in conversations
+
+---
+
+### **PHASE 3: Fine-tuning (Week 3-4)**
+
+**Goal:** Custom Aiko personality via fine-tuning
 
 **Tasks:**
-- [ ] Setup training environment
-  - [ ] Install Axolotl/Unsloth/LLaMA Factory
-  - [ ] Configure CUDA & dependencies
-- [ ] Configure LoRA parameters
-  ```yaml
-  # Example config
-  base_model: llama3.1:8b
-  lora_r: 16
-  lora_alpha: 32
-  lora_dropout: 0.05
-  learning_rate: 2e-4
-  batch_size: 4
-  epochs: 3-4
-  ```
-- [ ] Start training (2-8 hours)
-- [ ] Monitor loss & metrics
-- [ ] Evaluate on validation set
-- [ ] Test conversations manually
-- [ ] Iterate if needed (adjust dataset/params)
-- [ ] Merge LoRA weights
-- [ ] Export final model
-- [ ] Load custom model di Ollama
+- [ ] **Dataset Creation**
+  - [ ] Write 100-150 manual core conversations:
+    - 40-50 caring/support scenarios
+    - 30-40 daily conversation
+    - 20-30 playful teasing
+    - 20-30 assistant commands
+  - [ ] Use GPT-4 to generate 400-850 variations
+  - [ ] Quality control & clean dataset
+  - [ ] Format as JSONL (Google AI Studio format)
+  - [ ] Split train/validation (90/10)
+
+- [ ] **Fine-tuning in Google AI Studio**
+  - [ ] Upload dataset to AI Studio
+  - [ ] Configure tuning parameters
+  - [ ] Start tuning job (~30min - 2 hours)
+  - [ ] Monitor training progress
+  - [ ] Evaluate tuned model
+  - [ ] Test conversations manually
+  - [ ] Compare with base model
+
+- [ ] **Deployment**
+  - [ ] Update API to use tuned model
+  - [ ] A/B test if needed
+  - [ ] Deploy tuned model endpoint
 
 **Deliverables:**
-- Fine-tuned model (Modelfile)
-- Training logs & metrics
-- Evaluation report
-
-**Expected Results:**
-- Consistent personality
-- Natural Anjou-style responses
-- Good emotional support quality
+- ✅ Conversation dataset (500-1000 examples)
+- ✅ Fine-tuned Gemini model
+- ✅ Consistent Aiko personality
+- ✅ Evaluation report
 
 ---
 
-### **PHASE 3: Backend Core (Week 3-5)**
+### **PHASE 4: Backend Enhancement (Week 4-5)**
 
-**Goal:** Build API server dengan LLM integration
+**Goal:** Production-ready backend
 
-**Week 3:**
-- [ ] Initialize FastAPI project
-- [ ] Setup project structure
-- [ ] Configure environment (.env)
-- [ ] Integrate Ollama
-  - [ ] Test connection
-  - [ ] Chat completion endpoint
-  - [ ] Streaming responses
-- [ ] Basic authentication
+**Tasks:**
+- [ ] **Authentication**
   - [ ] User registration
+  - [ ] Login/logout
+  - [ ] JWT tokens
+  - [ ] Session management
+  
+- [ ] **API Endpoints**
+  - [ ] POST /api/chat (send message)
+  - [ ] GET /api/chat/history
+  - [ ] WebSocket /ws/chat (real-time)
+  - [ ] GET /api/user/profile
+  - [ ] Streaming responses (SSE)
+  
+- [ ] **Function Calling**
+  - [ ] Define tools for Gemini
+  - [ ] Web launcher tool
+  - [ ] (Future) Reminder tool
+  - [ ] (Future) Search tool
+  
+- [ ] **Error Handling & Validation**
+  - [ ] Input validation
+  - [ ] Rate limiting
+  - [ ] Error responses
+  - [ ] Logging
+
+- [ ] **Testing**
+  - [ ] Unit tests
+  - [ ] Integration tests
+  - [ ] API documentation (Swagger)
+
+**Deliverables:**
+- ✅ Production-ready API
+- ✅ Complete documentation
+- ✅ Test coverage
+
+---
+
+### **PHASE 5: Frontend Web (Week 5-7)**
+
+**Goal:** Beautiful chat interface
+
+**Week 5:**
+- [ ] **Next.js Setup**
+  - [ ] Initialize Next.js 15 project
+  - [ ] TailwindCSS + shadcn/ui
+  - [ ] TypeScript configuration
+  - [ ] Project structure
+  
+- [ ] **Authentication UI**
+  - [ ] Login page
+  - [ ] Register page
+  - [ ] Protected routes
+  
+**Week 6:**
+- [ ] **Chat Interface**
+  - [ ] Chat bubble components (user/AI)
+  - [ ] Message input (textarea + send)
+  - [ ] Real-time features:
+    - WebSocket/SSE integration
+    - Typing indicators
+    - Message streaming animation
+    - Auto-scroll
+  
+**Week 7:**
+- [ ] **Additional Pages**
+  - [ ] User profile page
+  - [ ] Settings page
+  - [ ] Chat history view
+  
+- [ ] **Polish**
+  - [ ] Mobile responsive
+  - [ ] Loading states
+  - [ ] Error handling & toasts
+  - [ ] Animations
+  - [ ] Accessibility
+
+**Deliverables:**
+- ✅ Complete web application
+- ✅ Mobile responsive
+- ✅ Smooth UX
+
+---
+
+### **PHASE 6: Character & Voice (Week 7-8)**
+
+**Goal:** Visual identity & voice
+
+**Tasks:**
+- [ ] **Character Avatar**
+  - [ ] Commission artist OR AI-generate
+  - [ ] Multiple expressions:
+    - Happy/Smiling
+    - Teasing/Playful
+    - Caring/Gentle
+    - Sad/Concerned
+    - Excited/Energetic
+  
+- [ ] **Expression System**
+  - [ ] Sentiment analysis
+  - [ ] Map emotion → avatar
+  - [ ] Display in chat UI
+  
+- [ ] **Voice Integration**
+  - [ ] Choose TTS provider:
+    - ElevenLabs (best quality)
+    - Google TTS (free tier)
+  - [ ] Backend TTS endpoint
+  - [ ] Audio player in frontend
+  - [ ] (Optional) STT for voice input
+
+**Deliverables:**
+- ✅ Character avatar set
+- ✅ Voice responses
+- ✅ Expression system
+
+---
+
+### **PHASE 7: Testing & Deploy (Week 8)**
+
+**Goal:** Production deployment
+
+**Tasks:**
+- [ ] **Testing**
+  - [ ] Bug fixes
+  - [ ] Manual testing scenarios
+  - [ ] Performance testing
+  
+- [ ] **Optimization**
+  - [ ] Database query optimization
+  - [ ] Frontend bundle size
+  - [ ] Image optimization
+  - [ ] Caching strategies
+  
+- [ ] **Security**
+  - [ ] Input validation review
+  - [ ] SQL injection prevention
+  - [ ] XSS protection
+  - [ ] Rate limiting verification
+  
+- [ ] **Deployment**
+  - [ ] Backend: VPS (DigitalOcean/Vultr) or Vercel
+  - [ ] Frontend: Vercel/Netlify
+  - [ ] Database: Supabase or managed PostgreSQL
+  - [ ] Vector DB: Qdrant Cloud or self-hosted
+  - [ ] Domain & SSL setup
+  - [ ] Environment variables config
+  
+- [ ] **Documentation**
+  - [ ] User guide
+  - [ ] API documentation
+  - [ ] Setup instructions
+  - [ ] Troubleshooting guide
+
+**Deliverables:**
+- ✅ Production deployment
+- ✅ Complete documentation
+- ✅ Monitoring & logging setup
+
+---
+
+### **FUTURE PHASES (When Ready)**
+
+#### **PHASE 8: Mobile App (Week 9-12)**
+- [ ] Choose framework (React Native/Flutter)
+- [ ] Port core features
+- [ ] Mobile-specific UX
+- [ ] Push notifications
+- [ ] App store submission
+
+#### **PHASE 9: Advanced Features**
+- [ ] Multimodal (image understanding via Gemini)
+- [ ] Image generation (avatar reactions)
+- [ ] Daily check-ins (proactive AI)
+- [ ] Mood tracking & insights
+- [ ] Multiple personalities/modes
+- [ ] **Advanced Assistant Features:**
+  - [ ] Email integration
+  - [ ] Calendar management
+  - [ ] File operations
+  - [ ] System controls (volume, brightness)
+  - [ ] Music control (Spotify)
+  - [ ] Smart home integration
+  - [ ] Web scraping & research
+  - [ ] Task automation
   - [ ] Login/logout
   - [ ] JWT tokens
 
@@ -957,43 +1196,59 @@ Week 2: Generation & QC
 └── Total: 500-1000 conversations
 ```
 
-### **Training Configuration**
+### **Training Configuration (Google AI Studio)**
 
-**LoRA Parameters:**
-```yaml
-base_model: llama3.1:8b
-adapter: lora
+**Fine-tuning Process:**
 
-# LoRA config
-lora_r: 16              # Rank (higher = more params)
-lora_alpha: 32          # Scaling factor
-lora_dropout: 0.05      # Regularization
-target_modules:         # Which layers to adapt
-  - q_proj
-  - k_proj
-  - v_proj
-  - o_proj
+1. **Prepare Dataset (JSONL format)**
+   ```json
+   {
+     "text_input": "User: I had a rough day at work today...",
+     "output": "Aww, someone's having a bad day~ *pokes cheek* Okay okay, I'm listening. Tell me what happened. You know I'm always here for you 💛"
+   }
+   ```
+   or
+   ```json
+   {
+     "messages": [
+       {"role": "user", "content": "..."},
+       {"role": "model", "content": "..."}
+     ]
+   }
+   ```
 
-# Training hyperparameters
-learning_rate: 2e-4
-batch_size: 4           # Adjust based on VRAM
-gradient_accumulation: 4
-epochs: 3-4
-warmup_steps: 100
-max_seq_length: 2048
+2. **Upload to Google AI Studio**
+   - Go to https://aistudio.google.com
+   - Navigate to "Tuned models"
+   - Click "Create tuned model"
+   - Upload JSONL file
+   
+3. **Configure Parameters** (Auto-managed by Google)
+   - Base model: Gemini 1.5 Pro or Flash
+   - Tuning will automatically optimize
+   - Usually takes 30min - 2 hours
+   
+4. **Monitor Training**
+   - View progress in AI Studio
+   - Check loss metrics
+   - Wait for completion
 
-# Optimization
-optimizer: adamw
-scheduler: cosine
-weight_decay: 0.01
-```
+5. **Test & Deploy**
+   - Test in AI Studio playground
+   - Get tuned model endpoint
+   - Update API to use tuned model
 
 **Expected Training Time:**
-- Dataset: 1000 examples
-- Epochs: 3-4
-- Batch size: 4
-- RTX 5050 (8GB VRAM)
-- **Duration: 4-8 hours**
+- Dataset: 500-1000 examples
+- Duration: **30 minutes - 2 hours** (fully managed by Google)
+- Cost: **FREE** on free tier or minimal cost
+
+**Advantages:**
+- ✅ No local GPU needed
+- ✅ No complex setup
+- ✅ Automatic hyperparameter tuning
+- ✅ Google handles infrastructure
+- ✅ Easy to iterate (re-tune quickly)
 
 ### **Evaluation Metrics**
 
@@ -1215,52 +1470,81 @@ Week 13+: Long-term
 
 ### **Development (One-time)**
 ```
-TOTAL: ~$15-30
+TOTAL: ~$10-30
 
 - Domain name: $10-15/year
 - (Optional) Character art commission: $50-200
-- Other: FREE (all open source)
+- (Optional) GPT-4 for dataset generation: $10-30
+- Other: FREE (Gemini API, open source tools)
 ```
 
 ### **Running Costs (Monthly)**
 
-#### **Full Local (Personal Use)**
+#### **Gemini Free Tier (Personal Use)** ⭐ **RECOMMENDED**
 ```
-TOTAL: ~$5-10/month
+TOTAL: ~$10-15/month
 
-- Electricity (laptop running): $5-10/month
-- No API costs: $0
-- No hosting: $0
-- Database: Local (free)
+- Gemini API: $0 (Free tier - 1,500 requests/day)
+- Hosting (VPS): $10-15/month (DigitalOcean/Vultr)
+- Database: $0 (Supabase free tier or local)
+- Vector DB: $0 (Qdrant free tier or self-hosted)
+- Domain + SSL: $1-2/month (amortized)
+
+Limits:
+- 15 requests per minute
+- 1,500 requests per day
+- ~50-100 conversations/day (plenty!)
 ```
 
-#### **Hybrid (Local + Cloud Access) - Future**
+#### **Gemini Paid Tier (Heavy Usage)**
 ```
-TOTAL: ~$25-60/month
+TOTAL: ~$15-25/month
 
-Option A: RunPod (GPU Cloud)
-- GPU instance: $0.30-0.50/hour
-- Average usage: 4 hrs/day = ~$40/month
-- Storage: $5/month
+If exceeds free tier:
+
+Gemini 2.0 Flash:
+- Input: $0.075 per 1M tokens (<128k context)
+- Output: $0.30 per 1M tokens (<128k context)
+
+Usage estimate (200 messages/day):
+- ~1.5-2M tokens/month
+- API cost: ~$0.50-2.00/month
+
+Hosting (same as free tier): $10-15/month
+Domain: $1-2/month
+
+Total: $12-20/month
+```
+
+#### **Full Cloud Deployment (Future)**
+```
+TOTAL: ~$25-40/month
+
+- VPS (Backend): $10-20/month
+- Frontend (Vercel): $0 (free tier)
+- Database (Supabase): $0-25/month
+- Vector DB (Qdrant Cloud): $0-25/month
+- Gemini API: $0-5/month
 - Domain + CDN: $5/month
 
-Option B: VPS (No dedicated GPU, use local for inference)
-- VPS (Frontend + DB): $10-20/month
-- Domain + CDN: $5/month
-- Inference: Local laptop (remote access)
-
-Option C: Serverless (Modal/Replicate)
-- Pay per use: $0.01-0.10/user/day
-- Personal use: ~$5-15/month
+Scalable option for multiple users
 ```
 
-### **Data Costs**
+### **Comparison with Local LLM**
 ```
-FREE for LLM (no OpenAI/Anthropic API)
+Local LLM (Original Plan):
+- Development: FREE
+- Running (laptop 24/7): $5-10/month (electricity)
+- Hosting GPU Cloud: $36-200/month
+- Total: $5-200/month depending on deployment
 
-Optional (if using for dataset generation):
-- GPT-4 for dataset generation: $10-30 (one-time)
-- Total: ~1M tokens = $20-40
+Gemini Approach:
+- Development: FREE (no GPU needed)
+- Running (free tier): $10-15/month (just hosting)
+- Hosting Cloud: $15-25/month total
+- Total: $10-25/month
+
+Savings: 60-90% cheaper for cloud deployment! 🎉
 ```
 
 ---
@@ -1270,24 +1554,34 @@ Optional (if using for dataset generation):
 ### **Tomorrow (March 12, 2026) - Day 1**
 
 #### **Morning (2-3 hours)**
-1. **Install Ollama**
+1. **Google AI Studio Setup**
    ```bash
-   # Download from ollama.ai
-   # Install untuk Windows
-   
-   # Pull base model
-   ollama pull llama3.1:8b
-   
-   # Test run
-   ollama run llama3.1:8b
-   # Try: "Hi, can you act as a caring and energetic companion?"
+   # 1. Go to https://aistudio.google.com
+   # 2. Sign in with Google account
+   # 3. Navigate to "Get API Key"
+   # 4. Create new API key
+   # 5. Copy and save securely
    ```
 
-2. **Test base model capabilities**
+2. **Test Gemini API**
+   ```python
+   # Quick test script
+   import google.generativeai as genai
+   
+   genai.configure(api_key="YOUR_API_KEY")
+   model = genai.GenerativeModel('gemini-2.0-flash-exp')
+   
+   response = model.generate_content(
+       "You are Aiko, a caring and energetic companion. "
+       "Respond to: Hi Aiko!"
+   )
+   print(response.text)
+   ```
+   
    - Test conversation quality
-   - Test personality following (dengan system prompts)
-   - Measure inference speed
-   - Check VRAM usage
+   - Test response speed
+   - Verify API key works
+   - Check rate limits
 
 #### **Afternoon (3-4 hours)**
 3. **Create project structure**
@@ -1300,32 +1594,65 @@ Optional (if using for dataset generation):
    mkdir app tests
    cd app
    mkdir models routes services database utils
+   mkdir services\assistant
    
    # Create initial files
-   touch main.py config.py __init__.py
-   touch requirements.txt .env.example
+   # (PowerShell - use 'New-Item' or create manually)
    ```
 
 4. **Setup Python environment**
    ```bash
    # Create virtual environment
    python -m venv venv
-   venv\Scripts\activate
+   .\venv\Scripts\activate
    
    # Install initial dependencies
-   pip install fastapi uvicorn ollama python-dotenv pydantic
+   pip install fastapi uvicorn google-generativeai python-dotenv pydantic
+   pip freeze > requirements.txt
+   ```
+   
+   # Install initial dependencies
+   pip install fastapi uvicorn google-generativeai python-dotenv pydantic
    pip freeze > requirements.txt
    ```
 
-5. **First API test with Web Launcher**
+5. **First API test with Gemini + Web Launcher**
    ```python
-   # main.py - Basic FastAPI + Ollama + Web Launcher
+   # main.py - FastAPI + Gemini + Web Launcher
    from fastapi import FastAPI
-   import ollama
+   import google.generativeai as genai
    import subprocess
    import re
+   import os
+   from dotenv import load_dotenv
+   
+   load_dotenv()
    
    app = FastAPI(title="AiKO-AI API")
+   
+   # Configure Gemini
+   genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+   
+   # Aiko's personality
+   AIKO_SYSTEM = """You are Aiko (愛子), a caring and energetic AI companion.
+
+Personality:
+- Bubbly & energetic (Anjou-style)
+- Caring & supportive (great listener for venting)
+- Playful teasing (light, wholesome)
+- Observant & remembers details
+
+Speaking:
+- Bahasa Indonesia casual
+- Mix of playful & sincere
+- Emojis (not excessive)
+- Use "~" for playful tone
+"""
+   
+   model = genai.GenerativeModel(
+       model_name="gemini-2.0-flash-exp",
+       system_instruction=AIKO_SYSTEM
+   )
    
    # Website mappings
    WEBSITES = {
@@ -1366,25 +1693,30 @@ Optional (if using for dataset generation):
        subprocess.Popen(["cmd", "/c", "start", url], shell=True)
    
    @app.post("/chat")
-   def chat(message: str):
+   async def chat(message: str):
        # Check for web launcher command
        site = detect_web_command(message)
        if site:
            open_website(site)
            return {
-               "response": f"Oke, bukain {site.title()} ya~ ✨",
+               "response": f"Oke, bukain {site.title()} ya~ ✨ Mau lihat apa nih? 😊",
                "action": "open_website",
                "website": site
            }
        
-       # Regular chat
-       response = ollama.chat(
-           model="llama3.1:8b",
-           messages=[{"role": "user", "content": message}]
-       )
-       return {"response": response['message']['content']}
+       # Regular chat with Gemini
+       chat_session = model.start_chat(history=[])
+       response = chat_session.send_message(message)
+       
+       return {"response": response.text}
    
    # Run: uvicorn main:app --reload
+   # Test: http://localhost:8000/docs
+   ```
+   
+   **Create .env file:**
+   ```bash
+   GEMINI_API_KEY=your_api_key_here
    ```
 
 #### **Evening (2-3 hours)**
@@ -1416,13 +1748,13 @@ Optional (if using for dataset generation):
 ### **Week 1 Goals**
 
 ```
-✅ Ollama installed & tested
-✅ Base API working (FastAPI + Ollama)
+✅ Google AI Studio account & API key
+✅ Base API working (FastAPI + Gemini)
 ✅ Web Launcher feature working (YouTube, IG, TikTok, etc)
 ✅ Project structure created
-✅ 50 core conversations written (including assistant commands)
-✅ Personality framework defined
+✅ Aiko personality prompt defined & tested
 ✅ Technical foundation validated
+✅ First prototype conversations working
 ```
 
 ---
@@ -1430,28 +1762,29 @@ Optional (if using for dataset generation):
 ### **Key Milestones**
 
 ```
-Week 2:  ✅ Dataset complete (500-1000 examples)
-Week 3:  ✅ Fine-tuned model ready
-Week 5:  ✅ Backend API complete
-Week 7:  ✅ Memory system working
-Week 10: ✅ Frontend complete
-Week 12: ✅ Voice integration
-Week 14: ✅ Personal deployment & daily use
+Week 1:  ✅ Basic chat + Web launcher working
+Week 2-3: ✅ Memory system (RAG) complete
+Week 3-4: ✅ Dataset + Fine-tuned Gemini model
+Week 5:  ✅ Backend API production-ready
+Week 6-7: ✅ Frontend complete
+Week 8:  ✅ Voice + Polish + Deploy
 
-Future: ☁️ Cloud deployment
-Future: 📱 Mobile app
-Future: ⭐ Advanced features
+MVP: 6-8 weeks total! 🚀
+
+Future: 📱 Mobile app (React Native/Flutter)
+Future: 🎨 Multimodal features (image understanding)
+Future: ⭐ Advanced assistant capabilities
 ```
 
 ---
 
 ## 📚 RESOURCES
 
-### **LLM & Fine-tuning**
-- Ollama: https://ollama.ai
-- Axolotl: https://github.com/OpenAccess-AI-Collective/axolotl
-- Unsloth: https://github.com/unslothai/unsloth
-- LLaMA Factory: https://github.com/hiyouga/LLaMA-Factory
+### **LLM & AI**
+- Google AI Studio: https://aistudio.google.com
+- Gemini API Docs: https://ai.google.dev/docs
+- Google Generative AI Python SDK: https://github.com/google/generative-ai-python
+- Fine-tuning Guide: https://ai.google.dev/docs/model_tuning_guidance
 
 ### **Backend**
 - FastAPI: https://fastapi.tiangolo.com
@@ -1502,11 +1835,19 @@ that you built from scratch. That's incredible."
 
 **Good luck! 🚀**
 
-**Next Step:** Install Ollama & test Llama 3.1 8B
+**Next Step:** Get Gemini API key & test first conversation with Aiko  
 **Let's build something amazing! 💛**
+
+**Why Gemini Approach:**
+- ⚡ 50% faster to MVP (6-8 weeks vs 12-14 weeks)
+- 🎯 Simpler setup (no local GPU needed)
+- 💰 Cost-effective (free tier for personal use)
+- 🚀 Easy deployment (just API calls)
+- 🎨 Future-ready (multimodal capabilities)
 
 ---
 
-*Last Updated: March 11, 2026*
-*Project: AiKO-AI*
+*Last Updated: March 11, 2026*  
+*Project: AiKO-AI*  
+*Approach: Gemini API (Google AI Studio)*  
 *Status: Ready to Start Implementation*
