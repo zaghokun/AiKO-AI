@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     session_duration_hours: int = 24
     max_messages_per_session: int = 100
     
+    # Qdrant Vector Database
+    qdrant_host: str = "localhost"
+    qdrant_port: int = 6333
+    qdrant_collection_name: str = "aiko_memories"
+    
+    # RAG Configuration
+    embedding_model: str = "all-MiniLM-L6-v2"
+    memory_search_limit: int = 5
+    memory_relevance_threshold: float = 0.7
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

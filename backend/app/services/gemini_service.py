@@ -113,6 +113,65 @@ Now, respond as Aiko would! Be warm, caring, and genuinely interested in connect
             print(f"Error in Gemini chat: {e}")
             return "Aduh, maaf ya... Aku lagi error nih 😅 Coba lagi dong~"
     
+    def chat_with_memory(
+        self,
+        message: str,
+        history: Optional[List[ChatMessage]] = None,
+        memory_context: Optional[str] = None
+    ) -> str:
+        """
+        Send chat message to Gemini with long-term memory context
+        
+        Args:
+            message: User message
+            history: Recent chat history
+            memory_context: Formatted relevant memories from past
+            
+        Returns:
+            Aiko's response
+        """
+        try:
+            # Build conversation history
+            contents = []
+            
+            # Add memory context as first system message if provided
+            if memory_context:
+                contents.append(types.Content(
+                    role="user",
+                    parts=[types.Part(text=memory_context)]
+                ))
+                contents.append(types.Content(
+                    role="model",
+                    parts=[types.Part(text="I'll keep these past conversations in mind! 💕")]
+                ))
+            
+            # Add recent history
+            if history:
+               for msg in history:
+                    contents.append(types.Content(
+                        role="user" if msg.role == "user" else "model",
+                        parts=[types.Part(text=msg.content)]
+                    ))
+            
+            # Add current message
+            contents.append(types.Content(
+                role="user",
+                parts=[types.Part(text=message)]
+            ))
+            
+            # Generate response
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents,
+                config=self.generation_config
+            )
+            
+            return response.text
+            
+        except Exception as e:
+            print(f"Error in Gemini chat with memory: {e}")
+            return "Aduh, maaf ya... Aku lagi error nih 😅 Coba lagi dong~"
+    
     async def chat_stream(self, message: str, history: Optional[List[ChatMessage]] = None):
         """
         Stream chat response from Gemini

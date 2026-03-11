@@ -204,6 +204,61 @@ async def get_chat_history(
         print(f"Error getting chat history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/memory/stats")
+async def get_memory_stats(
+    username: str = "default_user",
+    db: Session = Depends(get_db)
+):
+    """Get memory statistics for user"""
+    try:
+        from .services import memory_service
+        from .database import SessionManager
+        
+        # Get or create user
+        user = SessionManager.get_or_create_user(db, username)
+        
+        stats = memory_service.get_memory_stats(str(user.id))
+        return {
+            "status": "success",
+            "data": stats
+        }
+    except Exception as e:
+        print(f"Error getting memory stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/memory/search")
+async def search_memories(
+    query: str,
+    username: str = "default_user",
+    limit: int = 5,
+    db: Session = Depends(get_db)
+):
+    """Search for relevant memories"""
+    try:
+        from .services import memory_service
+        from .database import SessionManager
+        
+        # Get user and session
+        session = SessionManager.get_or_create_session(db, username)
+        user = session.user
+        
+        memories = memory_service.get_relevant_memories(
+            query=query,
+            user_id=str(user.id),
+            current_session_id=str(session.id),
+            limit=limit
+        )
+        
+        return {
+            "status": "success",
+            "query": query,
+            "count": len(memories),
+            "memories": memories
+        }
+    except Exception as e:
+        print(f"Error searching memories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/test")
 async def test_gemini():
     """Test Gemini API connection"""
