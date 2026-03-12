@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     session_duration_hours: int = 24
     max_messages_per_session: int = 100
     
+    # Authentication
+    jwt_secret_key: str = "your-secret-key-change-in-production-min-32-chars"
+    jwt_algorithm: str = "HS256"
+    jwt_expiration_hours: int = 24
+    
     # Qdrant Vector Database
     qdrant_host: str = "localhost"
     qdrant_port: int = 6333
@@ -32,6 +37,14 @@ class Settings(BaseSettings):
     embedding_model: str = "all-MiniLM-L6-v2"
     memory_search_limit: int = 5
     memory_relevance_threshold: float = 0.7
+    
+    # Security & Rate Limiting
+    rate_limit_requests: int = 100  # Max requests per window
+    rate_limit_window_seconds: int = 3600  # 1 hour window
+    websocket_rate_limit_messages: int = 30  # Max messages per minute
+    websocket_rate_limit_window: int = 60  # 1 minute window
+    max_message_length: int = 5000
+    enable_security_headers: bool = True
     
     class Config:
         env_file = ".env"
