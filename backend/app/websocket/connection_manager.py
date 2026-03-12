@@ -28,12 +28,17 @@ class ConnectionManager:
             user_id: User ID
             username: Username
         """
+        # Accept the connection first
         await websocket.accept()
         
         # Disconnect existing connection for same user (if any)
         if user_id in self.active_connections:
-            await self.disconnect(user_id)
+            try:
+                await self.disconnect(user_id)
+            except:
+                pass
         
+        # Register connection
         self.active_connections[user_id] = websocket
         self.user_info[user_id] = {
             "username": username,
@@ -42,12 +47,15 @@ class ConnectionManager:
         
         print(f"✅ WebSocket connected: {username} (user_id: {user_id})")
         
-        # Send welcome message
-        await self.send_personal_message({
-            "type": "system",
-            "message": f"Connected as {username}",
-            "timestamp": datetime.now().isoformat()
-        }, user_id)
+        # Send welcome message (with error handling)
+        try:
+            await websocket.send_json({
+                "type": "system",
+                "content": f"Connected as {username}",
+                "timestamp": datetime.now().isoformat()
+            })
+        except Exception as e:
+            print(f"Failed to send welcome message to {username}: {e}")
     
     async def disconnect(self, user_id: str):
         """
@@ -56,18 +64,24 @@ class ConnectionManager:
         Args:
             user_id: User ID to disconnect
         """
+        username = None
+        
+        if user_id in self.user_info:
+            username = self.user_info[user_id]["username"]
+            del self.user_info[user_id]
+        
         if user_id in self.active_connections:
             websocket = self.active_connections[user_id]
             try:
-                await websocket.close()
+                # Only try to close if still connected
+                if websocket.client_state.value == 1:
+                    await websocket.close()
             except:
                 pass
             
             del self.active_connections[user_id]
             
-            if user_id in self.user_info:
-                username = self.user_info[user_id]["username"]
-                del self.user_info[user_id]
+            if username:
                 print(f"❌ WebSocket disconnected: {username} (user_id: {user_id})")
     
     async def send_personal_message(self, message: dict, user_id: str):
@@ -78,14 +92,24 @@ class ConnectionManager:
             message: Message dictionary
             user_id: Target user ID
         """
-        if user_id in self.active_connections:
-            try:
-                await self.active_connections[user_id].send_json(message)
-            except WebSocketDisconnect:
+        if user_id not in self.active_connections:
+            return
+        
+        websocket = self.active_connections[user_id]
+        try:
+            # Check if connection is still open
+            if websocket.client_state.value == 1:  # WebSocketState.CONNECTED
+                await websocket.send_json(message)
+        except WebSocketDisconnect:
+            await self.disconnect(user_id)
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e):
                 await self.disconnect(user_id)
-            except Exception as e:
-                print(f"Error sending message to {user_id}: {e}")
-                await self.disconnect(user_id)
+            else:
+                print(f"WebSocket error for {self.user_info.get(user_id, {}).get('username', user_id)}: {e}")
+        except Exception as e:
+            print(f"Error sending message to {user_id}: {e}")
+            await self.disconnect(user_id)
     
     async def send_text_chunk(self, chunk: str, user_id: str):
         """
@@ -95,14 +119,22 @@ class ConnectionManager:
             chunk: Text chunk
             user_id: Target user ID
         """
-        if user_id in self.active_connections:
-            try:
-                await self.active_connections[user_id].send_text(chunk)
-            except WebSocketDisconnect:
+        if user_id not in self.active_connections:
+            return
+        
+        websocket = self.active_connections[user_id]
+        try:
+            # Check if connection is still open
+            if websocket.client_state.value == 1:  # WebSocketState.CONNECTED
+                await websocket.send_text(chunk)
+        except WebSocketDisconnect:
+            await self.disconnect(user_id)
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e):
                 await self.disconnect(user_id)
-            except Exception as e:
-                print(f"Error sending chunk to {user_id}: {e}")
-                await self.disconnect(user_id)
+        except Exception as e:
+            print(f"Error sending chunk to {user_id}: {e}")
+            await self.disconnect(user_id)
     
     async def send_typing_indicator(self, user_id: str, is_typing: bool):
         """
@@ -128,7 +160,7 @@ class ConnectionManager:
         """
         await self.send_personal_message({
             "type": "error",
-            "message": error_message,
+            "content": error_message,
             "timestamp": datetime.now().isoformat()
         }, user_id)
     

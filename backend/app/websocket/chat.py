@@ -111,6 +111,15 @@ async def websocket_endpoint(
                 continue
             
             message_type = message_data.get("type", "message")
+            
+            # Handle ping first (no content validation needed)
+            if message_type == "ping":
+                await manager.send_personal_message({
+                    "type": "pong",
+                    "timestamp": datetime.now().isoformat()
+                }, str(user.id))
+                continue
+            
             content = message_data.get("content", "").strip()
             
             # Rate limiting check
@@ -232,13 +241,6 @@ async def websocket_endpoint(
                         "Sorry, ada error pas streaming 😅",
                         str(user.id)
                     )
-            
-            elif message_type == "ping":
-                # Handle ping (keep-alive)
-                await manager.send_personal_message({
-                    "type": "pong",
-                    "timestamp": datetime.now().isoformat()
-                }, str(user.id))
             
             else:
                 await manager.send_error(
