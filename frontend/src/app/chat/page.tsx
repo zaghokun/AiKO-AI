@@ -2,15 +2,21 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuthStore, useChatStore, wsMessageToChatMessage } from '@/lib/store';
 import { AikoWebSocket } from '@/lib/websocket';
-import { MessageBubble } from '@/components/chat/MessageBubble';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Sidebar } from '@/components/chat/Sidebar';
-import { Heart, Loader2, Volume2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Heart, Loader2 } from 'lucide-react';
+
+type StagePairPhase = 'entering' | 'visible' | 'exiting';
+
+interface StagePair {
+  id: string;
+  userContent: string;
+  assistantContent: string;
+  phase: StagePairPhase;
+}
 
 export default function ChatPage() {
   const router = useRouter();
@@ -18,8 +24,69 @@ export default function ChatPage() {
   const { messages, isTyping, isConnected, addMessage, setTyping, setConnected } = useChatStore();
   
   const [isLoading, setIsLoading] = useState(true);
+  const [stagePairs, setStagePairs] = useState<StagePair[]>([]);
   const wsRef = useRef<AikoWebSocket | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingUserQueueRef = useRef<string[]>([]);
+  const activeStageUserRef = useRef<string | null>(null);
+  const pairTimersRef = useRef<Map<string, number>>(new Map());
+
+  const showUserStageNow = (userContent: string) => {
+    const pairId = `${Date.now()}-${Math.random()}`;
+    let exitingIds: string[] = [];
+    activeStageUserRef.current = userContent;
+
+    // Mark existing stage bubbles as exiting so they fade out first.
+    setStagePairs((prev) => {
+      exitingIds = prev.map((pair) => pair.id);
+      const exiting = prev.map((pair) => ({ ...pair, phase: 'exiting' as const }));
+      return [...exiting, { id: pairId, userContent, assistantContent: '', phase: 'entering' as const }];
+    });
+
+    const enterTimer = window.setTimeout(() => {
+      setStagePairs((prev) =>
+        prev.map((pair) => (pair.id === pairId && pair.phase === 'entering' ? { ...pair, phase: 'visible' } : pair))
+      );
+      pairTimersRef.current.delete(pairId);
+    }, 230);
+    pairTimersRef.current.set(pairId, enterTimer);
+
+    // Remove old bubbles after fade-out animation completes.
+    exitingIds.forEach((oldId) => {
+      const existingTimer = pairTimersRef.current.get(oldId);
+      if (existingTimer) {
+        window.clearTimeout(existingTimer);
+      }
+
+      const exitTimer = window.setTimeout(() => {
+        setStagePairs((prev) => prev.filter((pair) => pair.id !== oldId));
+        pairTimersRef.current.delete(oldId);
+      }, 280);
+
+      pairTimersRef.current.set(oldId, exitTimer);
+    });
+
+  };
+
+  const attachAssistantToActiveStage = (userContent: string, assistantContent: string) => {
+    // Only render assistant reply for the currently visible user bubble.
+    if (activeStageUserRef.current !== userContent) {
+      return;
+    }
+
+    setStagePairs((prev) => {
+      if (prev.length === 0) {
+        return [{
+          id: `${Date.now()}-${Math.random()}`,
+          userContent,
+          assistantContent,
+          phase: 'visible',
+        }];
+      }
+
+      const latest = prev[prev.length - 1];
+      return [{ ...latest, assistantContent, phase: 'visible' }];
+    });
+  };
 
   // Initialize auth
   useEffect(() => {
@@ -32,6 +99,14 @@ export default function ChatPage() {
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
+
+  // Cleanup stage animation timers
+  useEffect(() => {
+    return () => {
+      pairTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      pairTimersRef.current.clear();
+    };
+  }, []);
 
   // Initialize WebSocket
   useEffect(() => {
@@ -59,7 +134,16 @@ export default function ChatPage() {
     // Handle messages
     ws.on('message', (msg) => {
       if (msg.content) {
-        addMessage(wsMessageToChatMessage(msg));
+        const chatMessage = wsMessageToChatMessage(msg);
+        addMessage(chatMessage);
+
+        if (chatMessage.role === 'assistant' && pendingUserQueueRef.current.length > 0) {
+          const nextUserMessage = pendingUserQueueRef.current.shift();
+          if (nextUserMessage) {
+            attachAssistantToActiveStage(nextUserMessage, chatMessage.content);
+          }
+        }
+
         setTyping(false);
       }
     });
@@ -71,6 +155,12 @@ export default function ChatPage() {
     ws.on('system', (msg) => {
       if (msg.content) {
         addMessage(wsMessageToChatMessage(msg));
+      }
+    });
+
+    ws.on('action', (msg) => {
+      if (msg.action === 'open_website' && msg.url) {
+        window.open(msg.url, '_blank', 'noopener,noreferrer');
       }
     });
 
@@ -92,13 +182,6 @@ export default function ChatPage() {
     };
   }, [token]);
 
-  // Auto-scroll to bottom
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages, isTyping]);
-
   const handleSendMessage = async (content: string) => {
     if (!wsRef.current?.isConnected()) {
       addMessage({
@@ -117,6 +200,10 @@ export default function ChatPage() {
         timestamp: new Date().toISOString(),
       });
 
+      // Show user bubble immediately without waiting for AI response.
+      showUserStageNow(content);
+      pendingUserQueueRef.current.push(content);
+
       // Send via WebSocket
       wsRef.current.sendMessage(content);
     } catch (error) {
@@ -131,7 +218,7 @@ export default function ChatPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-950 via-purple-950/20 to-gray-950">
+      <div className="flex items-center justify-center min-h-screen bg-[#090b14]">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 animate-spin text-purple-500 mx-auto" />
           <p className="text-gray-400">Connecting to Aiko...</p>
@@ -145,113 +232,118 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-950 via-purple-950/20 to-gray-950 overflow-hidden">
+    <div className="relative flex h-screen overflow-hidden bg-[#0a0d17] text-slate-100">
+      <div className="ambient-bg" />
       <Sidebar />
       
       {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col lg:ml-20 relative">
-        {/* Top Bar */}
-        <div className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between p-4 bg-gradient-to-b from-gray-950/80 to-transparent backdrop-blur-sm">
-          <div className="lg:hidden w-16" /> {/* Spacer for mobile menu */}
-          
-          <div className="flex-1" />
-          
-          {/* Trial Badge */}
-          <div className="flex items-center space-x-4">
-            <div className="px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30">
-              <span className="text-xs font-medium text-amber-400">Free Version</span>
+      <main className="relative z-10 flex flex-1 flex-col lg:pl-20">
+        {/* Floating AiKO Profile Card */}
+        <div className="absolute left-24 top-7 z-30 w-72 rounded-2xl border border-cyan-300/35 bg-slate-900/45 px-4 py-3 backdrop-blur-lg shadow-[0_20px_60px_-20px_rgba(34,211,238,0.3)]">
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full border-2 border-fuchsia-400/60 bg-gradient-to-br from-fuchsia-500 to-cyan-500 shadow-[0_0_20px_-8px_rgba(232,121,249,0.8)]">
+              <span className="text-base font-semibold text-white">A</span>
             </div>
-            
-            {/* User Avatar */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold cursor-pointer hover:scale-105 transition-transform">
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
+
+            {/* Name & Status */}
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-2xl font-semibold text-slate-100">
+                AiKO
+              </p>
+              <p className="mt-0.5 flex items-center gap-1 text-[12px] text-emerald-300">
+                <span className="inline-block h-2 w-2 rounded-full bg-emerald-400" />
+                Online
+              </p>
+            </div>
+
+            {/* Heart Icon */}
+            <Heart className="h-6 w-6 flex-shrink-0 cursor-pointer text-slate-400 transition-colors hover:text-fuchsia-300" />
+          </div>
+        </div>
+
+        {/* Floating Right Controls */}
+        <div className="absolute right-4 top-8 z-30 flex items-center space-x-4 lg:right-8">
+          <div className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-4 py-2 backdrop-blur-md shadow-[0_0_30px_-18px_rgba(56,189,248,0.9)]">
+            <span className="text-xs font-medium tracking-wide text-cyan-200">Free Version</span>
+          </div>
+
+          <div className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-fuchsia-300/40 bg-gradient-to-br from-fuchsia-500/80 to-cyan-500/80 font-semibold text-white transition-transform hover:scale-105">
+            {user?.username?.charAt(0).toUpperCase() || 'U'}
+          </div>
+        </div>
+
+        {/* Character Area */}
+        <div className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center overflow-hidden px-4 pt-24">
+          <div className="relative">
+            <div className="glass-panel aura-ring flex h-80 w-64 items-center justify-center rounded-[2rem] border border-fuchsia-300/30 sm:h-96 sm:w-80">
+              <div className="space-y-3 text-center">
+                <Heart className="mx-auto h-16 w-16 text-fuchsia-300/60" />
+                <p className="text-sm font-medium tracking-wide text-fuchsia-100">Character Image</p>
+                <p className="text-xs text-slate-400">Coming Soon</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Character and Chat Container */}
-        <div className="flex-1 flex flex-col items-center justify-center px-4 pt-20 pb-4 overflow-hidden">
-          {/* Character Image Placeholder */}
-          <div className="relative mb-6 flex-shrink-0">
-            <div className="w-64 h-80 sm:w-80 sm:h-96 rounded-2xl bg-gradient-to-br from-purple-900/30 via-pink-900/20 to-purple-900/30 border-2 border-purple-500/30 flex items-center justify-center backdrop-blur-sm shadow-2xl">
-              <div className="text-center space-y-3">
-                <Heart className="w-16 h-16 text-purple-400/50 mx-auto" />
-                <p className="text-gray-400 text-sm font-medium">Character Image</p>
-                <p className="text-gray-600 text-xs">Coming Soon</p>
+        {/* Floating Stage Chat Stack */}
+        <div className="pointer-events-none absolute bottom-32 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 px-4 lg:left-[calc(50%+40px)]">
+          <div className="pointer-events-auto space-y-3">
+            {stagePairs.length === 0 ? (
+              <div className="mx-auto w-fit rounded-full border border-fuchsia-400/35 bg-fuchsia-500/10 px-6 py-3 text-center">
+                <p className="text-lg font-medium text-slate-200">Welcome back, {user?.username || 'friend'}~ what's on your mind?</p>
               </div>
-            </div>
-          </div>
-
-          {/* Chat Messages Container */}
-          <div className="w-full max-w-3xl flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-2">
-              <div className="space-y-4 py-4">
-                {messages.length === 0 ? (
-                  <div className="text-center space-y-4 py-8">
-                    <p className="text-gray-500 text-sm">Start a conversation with Aiko</p>
-                    <p className="text-gray-600 text-xs">Type a message below to begin</p>
+            ) : (
+              stagePairs.map((pair) => (
+                <div
+                  key={pair.id}
+                  className={`space-y-2 ${pair.phase === 'entering' ? 'stage-pair-enter' : ''} ${pair.phase === 'exiting' ? 'stage-pair-exit' : ''}`}
+                >
+                  <div className="flex justify-end">
+                    <div className="max-w-[86%] rounded-2xl rounded-br-sm border border-fuchsia-300/40 bg-gradient-to-br from-fuchsia-500/95 to-cyan-500/85 px-4 py-3 shadow-[0_20px_60px_-35px_rgba(6,182,212,0.9)]">
+                      <p className="text-sm leading-relaxed text-white">{pair.userContent}</p>
+                    </div>
                   </div>
-                ) : (
-                  <>
-                    {messages.map((message, index) => {
-                      if (message.role === 'user') {
-                        return (
-                          <div key={index} className="flex justify-end">
-                            <div className="max-w-[85%] bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl rounded-br-sm px-4 py-3 shadow-lg">
-                              <p className="text-white text-sm leading-relaxed">{message.content}</p>
-                            </div>
-                          </div>
-                        );
-                      } else if (message.role === 'assistant') {
-                        return (
-                          <div key={index} className="flex justify-start">
-                            <div className="max-w-[85%] bg-gray-800/80 backdrop-blur-sm border border-gray-700/50 rounded-2xl rounded-bl-sm px-4 py-3 shadow-lg">
-                              <p className="text-gray-100 text-sm leading-relaxed whitespace-pre-wrap">
-                                {message.content}
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      } else {
-                        return (
-                          <div key={index} className="flex justify-center">
-                            <div className="px-3 py-1.5 rounded-full bg-yellow-500/10 border border-yellow-500/20">
-                              <p className="text-xs text-yellow-400">{message.content}</p>
-                            </div>
-                          </div>
-                        );
-                      }
-                    })}
-                    {isTyping && (
-                      <div className="flex justify-start">
-                        <TypingIndicator />
+
+                  <div className="flex justify-start">
+                    {pair.assistantContent ? (
+                      <div className="glass-panel max-w-[86%] rounded-2xl rounded-bl-sm border border-cyan-200/20 px-4 py-3">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-100">{pair.assistantContent}</p>
+                      </div>
+                    ) : (
+                      <div className="rounded-full border border-cyan-300/20 bg-slate-900/35 px-3 py-1 text-xs text-cyan-200/80">
+                        Aiko is thinking...
                       </div>
                     )}
-                  </>
-                )}
-                <div ref={scrollRef} />
-              </div>
-            </ScrollArea>
+                  </div>
+                </div>
+              ))
+            )}
 
-            {/* Voice Button (if has messages) */}
+            {isTyping && (
+              <div className="flex justify-start">
+                <TypingIndicator />
+              </div>
+            )}
+
             {messages.length > 0 && (
-              <div className="flex justify-center py-3 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  className="rounded-full px-6 py-2 bg-purple-900/20 border-purple-500/30 hover:bg-purple-900/40 text-purple-300 text-sm"
-                >
-                  <Volume2 className="w-4 h-4 mr-2" />
+              <div className="flex justify-center pt-1">
+                <div className="rounded-full border border-cyan-300/25 bg-slate-900/65 px-5 py-2 text-sm text-cyan-100 backdrop-blur-md">
                   Tap to hear Aiko's voice
-                </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Input Area */}
-        <div className="border-t border-gray-800/50 bg-gray-900/50 backdrop-blur-sm p-4 flex-shrink-0">
-          <div className="max-w-4xl mx-auto">
-            <ChatInput onSend={handleSendMessage} disabled={!isConnected} />
+        {/* Floating Input Area */}
+        <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 w-full max-w-4xl -translate-x-1/2 px-4 lg:left-[calc(50%+40px)]">
+          <div className="pointer-events-auto mx-auto w-full">
+            <ChatInput
+              onSend={handleSendMessage}
+              disabled={!isConnected}
+              placeholder={isConnected ? 'Talk with Aiko...' : 'Connecting...'}
+            />
           </div>
         </div>
       </main>

@@ -30,14 +30,14 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
   };
 
   return (
-    <form onSubmit={handleSubmit} className="border-t bg-white dark:bg-gray-900 p-4">
+    <form onSubmit={handleSubmit} className="glass-panel rounded-2xl border border-white/10 p-3">
       <div className="flex items-center gap-2">
         {/* Upload Buttons */}
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="flex-shrink-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="h-10 w-10 flex-shrink-0 rounded-xl text-slate-400 hover:bg-white/10 hover:text-cyan-200"
           disabled={disabled}
           title="Upload image (coming soon)"
         >
@@ -48,7 +48,7 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
           type="button"
           variant="ghost"
           size="icon"
-          className="flex-shrink-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="h-10 w-10 flex-shrink-0 rounded-xl text-slate-400 hover:bg-white/10 hover:text-cyan-200"
           disabled={disabled}
           title="Upload file (coming soon)"
         >
@@ -63,7 +63,7 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          className="flex-1"
+          className="h-11 flex-1 rounded-xl border-white/10 bg-[#10192e]/70 text-slate-100 placeholder:text-slate-500 focus-visible:ring-cyan-400/50"
           autoComplete="off"
         />
 
@@ -72,7 +72,7 @@ export function ChatInput({ onSend, disabled = false, placeholder = 'Type a mess
           type="submit"
           size="icon"
           disabled={disabled || !message.trim()}
-          className="flex-shrink-0 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600"
+          className="h-11 w-11 flex-shrink-0 rounded-xl border border-cyan-200/30 bg-gradient-to-br from-fuchsia-500 to-cyan-500 text-white hover:brightness-110"
         >
           <Send className="w-5 h-5" />
         </Button>

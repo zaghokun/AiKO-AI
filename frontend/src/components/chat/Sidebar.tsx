@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-  Heart, 
   LogOut, 
   User,
   Trash2,
@@ -12,14 +11,12 @@ import {
   Menu,
   X
 } from 'lucide-react';
-import { useAuthStore, useChatStore } from '@/lib/store';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useAuthStore } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
   const router = useRouter();
-  const { user, clearAuth } = useAuthStore();
-  const { isConnected } = useChatStore();
+  const { clearAuth } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
@@ -40,12 +37,12 @@ export function Sidebar() {
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-gray-800/80 backdrop-blur-sm border border-gray-700 hover:bg-gray-700 transition-colors"
+        className="fixed left-4 top-4 z-50 rounded-xl border border-cyan-300/30 bg-[#0f162b]/80 p-2 text-cyan-100 backdrop-blur-md transition-colors hover:bg-[#1a2440] lg:hidden"
       >
         {isMobileMenuOpen ? (
-          <X className="w-5 h-5 text-gray-300" />
+          <X className="h-5 w-5" />
         ) : (
-          <Menu className="w-5 h-5 text-gray-300" />
+          <Menu className="h-5 w-5" />
         )}
       </button>
 
@@ -60,102 +57,63 @@ export function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed left-0 top-0 h-screen bg-gray-900/95 backdrop-blur-sm border-r border-gray-800
+          fixed left-0 top-0 h-screen bg-transparent
           transition-transform duration-300 z-40
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0 w-20
         `}
       >
-        <div className="flex flex-col h-full py-4">
-          {/* Profile Card at Top */}
-          <div className="px-3 mb-6">
-            <div className="relative">
-              <Avatar className="w-14 h-14 mx-auto border-2 border-purple-500/50">
-                <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-500 text-white font-semibold text-lg">
-                  {user?.username?.charAt(0).toUpperCase() || 'A'}
-                </AvatarFallback>
-              </Avatar>
-              
-              {/* Online Status Indicator */}
-              <div className="absolute bottom-0 right-1/2 translate-x-1/2 translate-y-1">
-                <div
-                  className={`w-3 h-3 rounded-full border-2 border-gray-900 ${
-                    isConnected ? 'bg-green-500' : 'bg-red-500'
-                  }`}
-                />
-              </div>
-            </div>
-            
-            {/* Username */}
-            <div className="mt-2 text-center">
-              <p className="text-xs text-gray-400 font-medium truncate">
-                {user?.username || 'Guest'}
-              </p>
-              <p className={`text-[10px] ${isConnected ? 'text-green-500' : 'text-red-500'}`}>
-                {isConnected ? 'Online' : 'Offline'}
-              </p>
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div className="border-t border-gray-800 mb-4" />
-
+        <div className="flex h-full flex-col py-4">
           {/* Menu Icons */}
-          <nav className="flex-1 flex flex-col items-center space-y-2 px-3">
+          <nav className="flex flex-1 flex-col items-center justify-center space-y-3 px-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={handleProfile}
-              className="w-12 h-12 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors"
+              className="h-11 w-11 rounded-xl text-slate-400 transition-colors hover:bg-white/10 hover:text-cyan-200"
               title="Profile"
             >
-              <User className="w-5 h-5" />
+              <User className="h-5 w-5" />
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
-              className="w-12 h-12 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors"
+              className="h-11 w-11 rounded-xl text-slate-400 transition-colors hover:bg-white/10 hover:text-cyan-200"
               title="Clear Chat"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="h-5 w-5" />
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
-              className="w-12 h-12 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors"
+              className="h-11 w-11 rounded-xl text-slate-400 transition-colors hover:bg-white/10 hover:text-cyan-200"
               title="Edit"
             >
-              <Edit className="w-5 h-5" />
+              <Edit className="h-5 w-5" />
             </Button>
 
             <Button
               variant="ghost"
               size="icon"
               onClick={handleSettings}
-              className="w-12 h-12 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-purple-400 transition-colors"
+              className="h-11 w-11 rounded-xl text-slate-400 transition-colors hover:bg-white/10 hover:text-cyan-200"
               title="Settings"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="h-5 w-5" />
             </Button>
-          </nav>
 
-          {/* Divider */}
-          <div className="border-t border-gray-800 mt-4 mb-4" />
-
-          {/* Logout Button at Bottom */}
-          <div className="px-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={handleLogout}
-              className="w-12 h-12 rounded-xl hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors"
+              className="h-11 w-11 rounded-xl text-slate-400 transition-colors hover:bg-rose-500/15 hover:text-rose-300"
               title="Logout"
             >
-              <LogOut className="w-5 h-5" />
+              <LogOut className="h-5 w-5" />
             </Button>
-          </div>
+          </nav>
         </div>
       </aside>
     </>

@@ -3,7 +3,7 @@
  * Handles WebSocket connection to AiKO backend
  */
 
-export type MessageType = 'message' | 'typing' | 'system' | 'error' | 'stream_chunk' | 'pong';
+export type MessageType = 'message' | 'typing' | 'system' | 'error' | 'stream_chunk' | 'pong' | 'action';
 
 export interface WebSocketMessage {
   type: MessageType;
@@ -12,6 +12,9 @@ export interface WebSocketMessage {
   timestamp?: string;
   is_typing?: boolean;
   memories_used?: number;
+  action?: 'open_website';
+  website?: string;
+  url?: string;
 }
 
 export type WebSocketEventHandler = (message: WebSocketMessage) => void;
@@ -44,7 +47,6 @@ export class AikoWebSocket {
           console.log('✅ WebSocket Connected');
           this.reconnectAttempts = 0;
           this.startPingInterval();
-          this.emit('system', { type: 'system', content: 'Connected to Aiko' });
           resolve();
         };
 
@@ -65,7 +67,6 @@ export class AikoWebSocket {
         this.ws.onclose = (event) => {
           console.log('🔌 WebSocket Closed:', event.code, event.reason);
           this.stopPingInterval();
-          this.emit('system', { type: 'system', content: 'Disconnected from Aiko' });
 
           // Only auto-reconnect if not intentionally closed
           if (!this.intentionalClose && this.reconnectAttempts < this.maxReconnectAttempts) {
