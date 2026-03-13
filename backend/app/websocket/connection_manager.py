@@ -46,16 +46,6 @@ class ConnectionManager:
         }
         
         print(f"✅ WebSocket connected: {username} (user_id: {user_id})")
-        
-        # Send welcome message (with error handling)
-        try:
-            await websocket.send_json({
-                "type": "system",
-                "content": f"Connected as {username}",
-                "timestamp": datetime.now().isoformat()
-            })
-        except Exception as e:
-            print(f"Failed to send welcome message to {username}: {e}")
     
     async def disconnect(self, user_id: str):
         """

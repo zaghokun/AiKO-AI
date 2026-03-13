@@ -16,6 +16,7 @@ from ..database.models import User
 from ..services.auth_service import auth_service
 from ..services.chat_service import ChatService
 from ..services.gemini_service import GeminiService
+from ..services.web_launcher import WebLauncherService
 from ..middleware.rate_limiter import ws_rate_limiter
 from ..utils.sanitizer import sanitizer
 
@@ -98,6 +99,7 @@ async def websocket_endpoint(
     # Initialize services
     chat_service = ChatService()
     gemini_service = GeminiService()
+    web_launcher = WebLauncherService()
     
     try:
         while True:
@@ -154,6 +156,26 @@ async def websocket_endpoint(
             
             # Handle different message types
             if message_type == "message":
+                website_data = web_launcher.detect_website(content)
+
+                if website_data:
+                    # Send assistant message (don't launch from backend - let frontend handle it)
+                    await manager.send_personal_message({
+                        "type": "message",
+                        "role": "assistant",
+                        "content": web_launcher.get_response_message(website_data["website"]),
+                        "timestamp": datetime.now().isoformat()
+                    }, str(user.id))
+
+                    await manager.send_personal_message({
+                        "type": "action",
+                        "action": "open_website",
+                        "website": website_data["website"],
+                        "url": website_data["url"],
+                        "timestamp": datetime.now().isoformat()
+                    }, str(user.id))
+                    continue
+
                 # Send typing indicator
                 await manager.send_typing_indicator(str(user.id), True)
                 
