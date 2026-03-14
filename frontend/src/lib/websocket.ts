@@ -68,6 +68,16 @@ export class AikoWebSocket {
           console.log('🔌 WebSocket Closed:', event.code, event.reason);
           this.stopPingInterval();
 
+          // Auth failures should not retry - token is likely expired/invalid.
+          if (event.code === 1008) {
+            this.intentionalClose = true;
+            this.emit('error', {
+              type: 'error',
+              content: event.reason || 'Authentication failed. Please login again.',
+            });
+            return;
+          }
+
           // Only auto-reconnect if not intentionally closed
           if (!this.intentionalClose && this.reconnectAttempts < this.maxReconnectAttempts) {
             this.reconnectAttempts++;

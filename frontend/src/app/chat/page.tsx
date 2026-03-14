@@ -1,6 +1,7 @@
-'use client';
+ 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAuthStore, useChatStore, wsMessageToChatMessage } from '@/lib/store';
 import { AikoWebSocket } from '@/lib/websocket';
@@ -8,6 +9,12 @@ import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Sidebar } from '@/components/chat/Sidebar';
 import { Heart, Loader2 } from 'lucide-react';
+
+// Dynamically load Live2DCanvas to ensure Cubism runtime is loaded first
+const Live2DCanvas = dynamic(() => import('@/components/chat/Live2DCanvas').then(mod => ({ default: mod.Live2DCanvas })), {
+  ssr: false,
+  loading: () => <div className="text-white text-sm">Loading Alexia...</div>,
+});
 
 type StagePairPhase = 'entering' | 'visible' | 'exiting';
 
@@ -19,10 +26,12 @@ interface StagePair {
 }
 
 export default function ChatPage() {
+  const activeLive2DModel = '/live2d/alexia/Alexia.model3.json';
+
   const router = useRouter();
-  const { isAuthenticated, token, user, initAuth } = useAuthStore();
+  const { isAuthenticated, token, user, initAuth, clearAuth } = useAuthStore();
   const { messages, isTyping, isConnected, addMessage, setTyping, setConnected } = useChatStore();
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [stagePairs, setStagePairs] = useState<StagePair[]>([]);
   const wsRef = useRef<AikoWebSocket | null>(null);
@@ -35,7 +44,6 @@ export default function ChatPage() {
     let exitingIds: string[] = [];
     activeStageUserRef.current = userContent;
 
-    // Mark existing stage bubbles as exiting so they fade out first.
     setStagePairs((prev) => {
       exitingIds = prev.map((pair) => pair.id);
       const exiting = prev.map((pair) => ({ ...pair, phase: 'exiting' as const }));
@@ -50,7 +58,6 @@ export default function ChatPage() {
     }, 230);
     pairTimersRef.current.set(pairId, enterTimer);
 
-    // Remove old bubbles after fade-out animation completes.
     exitingIds.forEach((oldId) => {
       const existingTimer = pairTimersRef.current.get(oldId);
       if (existingTimer) {
@@ -64,11 +71,9 @@ export default function ChatPage() {
 
       pairTimersRef.current.set(oldId, exitTimer);
     });
-
   };
 
   const attachAssistantToActiveStage = (userContent: string, assistantContent: string) => {
-    // Only render assistant reply for the currently visible user bubble.
     if (activeStageUserRef.current !== userContent) {
       return;
     }
@@ -88,19 +93,16 @@ export default function ChatPage() {
     });
   };
 
-  // Initialize auth
   useEffect(() => {
     initAuth();
   }, [initAuth]);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Cleanup stage animation timers
   useEffect(() => {
     return () => {
       pairTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -108,7 +110,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Initialize WebSocket
   useEffect(() => {
     if (!token) {
       setIsLoading(false);
@@ -118,7 +119,6 @@ export default function ChatPage() {
     const ws = new AikoWebSocket(token);
     wsRef.current = ws;
 
-    // Connect
     ws.connect()
       .then(() => {
         console.log('✅ Connected to AiKO');
@@ -131,7 +131,6 @@ export default function ChatPage() {
         setIsLoading(false);
       });
 
-    // Handle messages
     ws.on('message', (msg) => {
       if (msg.content) {
         const chatMessage = wsMessageToChatMessage(msg);
@@ -165,6 +164,13 @@ export default function ChatPage() {
     });
 
     ws.on('error', (msg) => {
+      const errorText = (msg.content || '').toLowerCase();
+      if (errorText.includes('authentication failed') || errorText.includes('missing authentication')) {
+        clearAuth();
+        router.push('/login');
+        return;
+      }
+
       if (msg.content) {
         addMessage({
           role: 'system',
@@ -175,12 +181,11 @@ export default function ChatPage() {
       setTyping(false);
     });
 
-    // Cleanup
     return () => {
       console.log('🔌 Cleaning up WebSocket connection');
       ws.disconnect();
     };
-  }, [token]);
+  }, [token, clearAuth, router, addMessage, setTyping, setConnected]);
 
   const handleSendMessage = async (content: string) => {
     if (!wsRef.current?.isConnected()) {
@@ -273,16 +278,14 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Character Area */}
-        <div className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center overflow-hidden px-4 pt-24">
-          <div className="relative">
-            <div className="glass-panel aura-ring flex h-80 w-64 items-center justify-center rounded-[2rem] border border-fuchsia-300/30 sm:h-96 sm:w-80">
-              <div className="space-y-3 text-center">
-                <Heart className="mx-auto h-16 w-16 text-fuchsia-300/60" />
-                <p className="text-sm font-medium tracking-wide text-fuchsia-100">Character Image</p>
-                <p className="text-xs text-slate-400">Coming Soon</p>
-              </div>
-            </div>
+        {/* Floating Character Layer (Aethris-style) */}
+        <div className="pointer-events-none absolute left-1/2 top-[6%] z-10 -translate-x-1/2">
+          <div className="relative h-[76vh] w-[290px] sm:w-[370px] lg:w-[440px]">
+            <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.18)_0%,rgba(34,211,238,0.09)_45%,rgba(10,13,23,0)_75%)] blur-2xl" />
+            <Live2DCanvas
+              modelPath={activeLive2DModel}
+              className="relative z-10 h-full w-full"
+            />
           </div>
         </div>
 
