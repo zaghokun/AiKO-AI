@@ -278,9 +278,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Floating Character Layer */}
-        <div className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2">
-          <div className="relative h-[64vh] w-[280px] sm:w-[340px] lg:w-[400px]">
+        {/* Floating Character Layer (Aethris-style) */}
+        <div className="pointer-events-none absolute left-1/2 top-[1%] z-10 -translate-x-1/2">
+          <div className="relative h-[72vh] w-[290px] sm:w-[370px] lg:w-[440px]">
             <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.18)_0%,rgba(34,211,238,0.09)_45%,rgba(10,13,23,0)_75%)] blur-2xl" />
             <Live2DCanvas
               modelPath={activeLive2DModel}

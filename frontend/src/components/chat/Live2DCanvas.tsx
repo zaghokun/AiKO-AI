@@ -11,6 +11,7 @@ interface Live2DCanvasProps {
 
 export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasHostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const modelRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
@@ -19,12 +20,13 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || !canvasHostRef.current) return;
 
     const initializePixi = async () => {
       try {
-        const host = containerRef.current;
-        if (!host) {
+        const root = containerRef.current;
+        const host = canvasHostRef.current;
+        if (!root || !host) {
           return;
         }
 
@@ -43,8 +45,8 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         const { Live2DModel } = await import('pixi-live2d-display/cubism4');
 
         // Support Pixi variants: v8 uses `init`, v6 uses constructor options.
-        const initialWidth = Math.max(1, host.clientWidth);
-        const initialHeight = Math.max(1, host.clientHeight);
+        const initialWidth = Math.max(1, root.clientWidth);
+        const initialHeight = Math.max(1, root.clientHeight);
 
         const appOptions = {
           width: initialWidth,
@@ -75,7 +77,10 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         appCanvas.style.display = 'block';
         appCanvas.style.background = 'transparent';
 
-        // Append canvas to container
+        // Mount PIXI canvas to a dedicated host node managed outside React children.
+        while (host.firstChild) {
+          host.removeChild(host.firstChild);
+        }
         host.appendChild(appCanvas);
 
         appRef.current = app;
@@ -93,33 +98,28 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         const sourceHeight = Math.max(1, sourceBounds.height);
 
         const layoutModel = () => {
-            const viewportWidth = Math.max(1, host.clientWidth);
-            const viewportHeight = Math.max(1, host.clientHeight);
+            const viewportWidth = Math.max(1, root.clientWidth);
+            const viewportHeight = Math.max(1, root.clientHeight);
             const renderer = (app.renderer ?? app) as any;
 
             if (renderer && typeof renderer.resize === 'function') {
                 renderer.resize(viewportWidth, viewportHeight);
             }
 
-            const sidePadding = viewportWidth * 0.14;
-            const topPadding = viewportHeight * 0.08;
-            const bottomPadding = viewportHeight * 0.12;
-            const usableWidth = Math.max(1, viewportWidth - sidePadding * 2);
-            const usableHeight = Math.max(1, viewportHeight - topPadding - bottomPadding);
+            // Fit model consistently in stage with headroom and footroom.
+            const usableWidth = viewportWidth * 0.58;
+            const usableHeight = viewportHeight * 0.82;
 
             const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
             const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
             model.scale.set(safeScale);
 
-            // Center anchor
             const centerX = viewportWidth / 2;
-            const centerY = viewportHeight / 2;
+            const floorY = viewportHeight * 0.97;
 
-            // Naikkan model dikit (tune angka ini)
-            const liftPx = viewportHeight * 0.12;
-
+            // Hard-center X and lock feet near bottom to avoid random jumps.
             model.x = centerX - (sourceBounds.x + sourceWidth / 2) * safeScale;
-            model.y = centerY - (sourceBounds.y + sourceHeight / 2) * safeScale - liftPx;
+            model.y = floorY - (sourceBounds.y + sourceHeight) * safeScale;
 
             baseXRef.current = model.x;
         };
@@ -129,7 +129,7 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         const resizeObserver = new ResizeObserver(() => {
           layoutModel();
         });
-        resizeObserver.observe(host);
+        resizeObserver.observe(root);
 
         modelRef.current = model;
 
@@ -148,7 +148,7 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
 
           // Simple idle animation - subtle sway
           if (model && app) {
-            model.x = baseXRef.current + Math.sin(elapsed * 0.001) * 5;
+            model.x = baseXRef.current + Math.sin(elapsed * 0.001) * 3;
           }
 
           animationFrameRef.current = requestAnimationFrame(animate);
@@ -178,6 +178,12 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         }
         appRef.current.destroy(true);
       }
+
+      if (canvasHostRef.current) {
+        while (canvasHostRef.current.firstChild) {
+          canvasHostRef.current.removeChild(canvasHostRef.current.firstChild);
+        }
+      }
     };
   }, [modelPath, onModelLoaded]);
 
@@ -189,11 +195,12 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
   return (
     <div 
       ref={containerRef}
-      className={`justify-center ${className}`}
+      className={`relative h-full w-full flex items-center justify-center ${className}`}
       style={{
         filter: 'drop-shadow(0 20px 40px rgba(236, 72, 153, 0.28))',
       }}
     >
+      <div ref={canvasHostRef} className="absolute inset-0" />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg z-10">
           <div className="text-white text-sm">Loading Alexia...</div>
