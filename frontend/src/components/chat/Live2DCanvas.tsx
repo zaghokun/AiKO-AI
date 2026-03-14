@@ -93,29 +93,35 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         const sourceHeight = Math.max(1, sourceBounds.height);
 
         const layoutModel = () => {
-          const viewportWidth = Math.max(1, host.clientWidth);
-          const viewportHeight = Math.max(1, host.clientHeight);
-          const renderer = (app.renderer ?? app) as any;
+            const viewportWidth = Math.max(1, host.clientWidth);
+            const viewportHeight = Math.max(1, host.clientHeight);
+            const renderer = (app.renderer ?? app) as any;
 
-          if (renderer && typeof renderer.resize === 'function') {
-            renderer.resize(viewportWidth, viewportHeight);
-          }
+            if (renderer && typeof renderer.resize === 'function') {
+                renderer.resize(viewportWidth, viewportHeight);
+            }
 
-          const sidePadding = viewportWidth * 0.14;
-          const topPadding = viewportHeight * 0.05;
-          const bottomPadding = viewportHeight * 0.03;
-          const usableWidth = Math.max(1, viewportWidth - sidePadding * 2);
-          const usableHeight = Math.max(1, viewportHeight - topPadding - bottomPadding);
-          const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
-          const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
+            const sidePadding = viewportWidth * 0.14;
+            const topPadding = viewportHeight * 0.08;
+            const bottomPadding = viewportHeight * 0.12;
+            const usableWidth = Math.max(1, viewportWidth - sidePadding * 2);
+            const usableHeight = Math.max(1, viewportHeight - topPadding - bottomPadding);
 
-          model.scale.set(safeScale);
+            const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
+            const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
+            model.scale.set(safeScale);
 
-          const centerX = viewportWidth / 2;
-          const bottomY = viewportHeight - bottomPadding;
-          model.x = centerX - (sourceBounds.x + sourceWidth / 2) * safeScale;
-          model.y = bottomY - (sourceBounds.y + sourceHeight) * safeScale;
-          baseXRef.current = model.x;
+            // Center anchor
+            const centerX = viewportWidth / 2;
+            const centerY = viewportHeight / 2;
+
+            // Naikkan model dikit (tune angka ini)
+            const liftPx = viewportHeight * 0.12;
+
+            model.x = centerX - (sourceBounds.x + sourceWidth / 2) * safeScale;
+            model.y = centerY - (sourceBounds.y + sourceHeight / 2) * safeScale - liftPx;
+
+            baseXRef.current = model.x;
         };
 
         layoutModel();
@@ -183,7 +189,7 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full h-full flex items-center justify-center ${className}`}
+      className={`justify-center ${className}`}
       style={{
         filter: 'drop-shadow(0 20px 40px rgba(236, 72, 153, 0.28))',
       }}

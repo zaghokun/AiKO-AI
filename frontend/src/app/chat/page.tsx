@@ -278,9 +278,9 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Floating Character Layer (Aethris-style) */}
-        <div className="pointer-events-none absolute left-1/2 top-[6%] z-10 -translate-x-1/2">
-          <div className="relative h-[76vh] w-[290px] sm:w-[370px] lg:w-[440px]">
+        {/* Floating Character Layer */}
+        <div className="pointer-events-none absolute left-1/2 top-0 z-10 -translate-x-1/2">
+          <div className="relative h-[64vh] w-[280px] sm:w-[340px] lg:w-[400px]">
             <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.18)_0%,rgba(34,211,238,0.09)_45%,rgba(10,13,23,0)_75%)] blur-2xl" />
             <Live2DCanvas
               modelPath={activeLive2DModel}
@@ -290,7 +290,7 @@ export default function ChatPage() {
         </div>
 
         {/* Floating Stage Chat Stack */}
-        <div className="pointer-events-none absolute bottom-32 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 px-4 lg:left-[calc(50%+40px)]">
+        <div className="pointer-events-none absolute bottom-32 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 px-4 ">
           <div className="pointer-events-auto space-y-3">
             {stagePairs.length === 0 ? (
               <div className="mx-auto w-fit rounded-full border border-fuchsia-400/35 bg-fuchsia-500/10 px-6 py-3 text-center">
@@ -340,7 +340,7 @@ export default function ChatPage() {
         </div>
 
         {/* Floating Input Area */}
-        <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 w-full max-w-4xl -translate-x-1/2 px-4 lg:left-[calc(50%+40px)]">
+        <div className="pointer-events-none absolute bottom-6 left-1/2 z-30 w-full max-w-4xl -translate-x-1/2 px-4">
           <div className="pointer-events-auto mx-auto w-full">
             <ChatInput
               onSend={handleSendMessage}

@@ -27,3 +27,5 @@ Thumbs.db
 *.log
 
 docker-compose.yml
+
+/live2d-asset
