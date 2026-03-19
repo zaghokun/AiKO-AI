@@ -8,6 +8,7 @@ import { AikoWebSocket } from '@/lib/websocket';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { Sidebar } from '@/components/chat/Sidebar';
+import { CharacterEmotion, detectAssistantEmotion } from '@/lib/expression';
 import { Heart, Loader2 } from 'lucide-react';
 
 // Dynamically load Live2DCanvas to ensure Cubism runtime is loaded first
@@ -34,6 +35,8 @@ export default function ChatPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [stagePairs, setStagePairs] = useState<StagePair[]>([]);
+  const [characterEmotion, setCharacterEmotion] = useState<CharacterEmotion>('neutral');
+  const [emotionSeed, setEmotionSeed] = useState<string>('boot');
   const wsRef = useRef<AikoWebSocket | null>(null);
   const pendingUserQueueRef = useRef<string[]>([]);
   const activeStageUserRef = useRef<string | null>(null);
@@ -136,11 +139,17 @@ export default function ChatPage() {
         const chatMessage = wsMessageToChatMessage(msg);
         addMessage(chatMessage);
 
-        if (chatMessage.role === 'assistant' && pendingUserQueueRef.current.length > 0) {
-          const nextUserMessage = pendingUserQueueRef.current.shift();
-          if (nextUserMessage) {
-            attachAssistantToActiveStage(nextUserMessage, chatMessage.content);
+        if (chatMessage.role === 'assistant') {
+          if (pendingUserQueueRef.current.length > 0) {
+            const nextUserMessage = pendingUserQueueRef.current.shift();
+            if (nextUserMessage) {
+              attachAssistantToActiveStage(nextUserMessage, chatMessage.content);
+            }
           }
+
+          const detectedEmotion = detectAssistantEmotion(chatMessage.content);
+          setCharacterEmotion(detectedEmotion);
+          setEmotionSeed(`${Date.now()}-${chatMessage.content.slice(0, 48)}`);
         }
 
         setTyping(false);
@@ -280,10 +289,12 @@ export default function ChatPage() {
 
         {/* Floating Character Layer (Aethris-style) */}
         <div className="pointer-events-none absolute left-1/2 top-[1%] z-10 -translate-x-1/2">
-          <div className="relative h-[72vh] w-[290px] sm:w-[370px] lg:w-[440px]">
+          <div className="relative h-[78vh] w-[320px] sm:w-[420px] lg:w-[500px]">
             <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle_at_center,rgba(236,72,153,0.18)_0%,rgba(34,211,238,0.09)_45%,rgba(10,13,23,0)_75%)] blur-2xl" />
             <Live2DCanvas
               modelPath={activeLive2DModel}
+              emotion={characterEmotion}
+              emotionSeed={emotionSeed}
               className="relative z-10 h-full w-full"
             />
           </div>

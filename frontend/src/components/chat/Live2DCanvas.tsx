@@ -2,22 +2,63 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Application } from 'pixi.js';
+import { CharacterEmotion, pickExpressionForEmotion } from '@/lib/expression';
 
 interface Live2DCanvasProps {
   modelPath: string;
   className?: string;
+  emotion?: CharacterEmotion;
+  emotionSeed?: string;
   onModelLoaded?: (model: any) => void;
 }
 
-export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2DCanvasProps) {
+export function Live2DCanvas({
+  modelPath,
+  className = '',
+  emotion = 'neutral',
+  emotionSeed = '',
+  onModelLoaded,
+}: Live2DCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<Application | null>(null);
   const modelRef = useRef<any>(null);
   const animationFrameRef = useRef<number | null>(null);
   const baseXRef = useRef(0);
+  const activeExpressionRef = useRef<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const applyExpressionToModel = async (model: any, expression: string): Promise<boolean> => {
+    if (!model || !expression) {
+      return false;
+    }
+
+    try {
+      if (typeof model.expression === 'function') {
+        const ok = await model.expression(expression);
+        if (ok) {
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('model.expression failed:', e);
+    }
+
+    try {
+      const manager = model.internalModel?.motionManager?.expressionManager;
+      if (manager && typeof manager.setExpression === 'function') {
+        const ok = await manager.setExpression(expression);
+        if (ok) {
+          return true;
+        }
+      }
+    } catch (e) {
+      console.warn('expressionManager.setExpression failed:', e);
+    }
+
+    return false;
+  };
 
   useEffect(() => {
     if (!containerRef.current || !canvasHostRef.current) return;
@@ -107,8 +148,8 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
             }
 
             // Fit model consistently in stage with headroom and footroom.
-            const usableWidth = viewportWidth * 0.58;
-            const usableHeight = viewportHeight * 0.82;
+            const usableWidth = viewportWidth * 0.75;
+            const usableHeight = viewportHeight * 0.98;
 
             const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
             const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
@@ -139,6 +180,17 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
         }
 
         model.visible = true;
+
+        const initialExpression = pickExpressionForEmotion(emotion, emotionSeed || 'initial');
+        try {
+          const applied = await applyExpressionToModel(model, initialExpression);
+          if (applied) {
+            activeExpressionRef.current = initialExpression;
+          }
+        } catch (expError) {
+          console.warn('Failed to set initial expression:', expError);
+        }
+
         setIsLoading(false);
 
         // Animation loop for idle + blink
@@ -191,6 +243,28 @@ export function Live2DCanvas({ modelPath, className = '', onModelLoaded }: Live2
   useEffect(() => {
     (window as any).live2dModel = modelRef.current;
   }, []);
+
+  useEffect(() => {
+    const model = modelRef.current;
+    if (!model) {
+      return;
+    }
+
+    const expression = pickExpressionForEmotion(emotion, emotionSeed);
+    if (!expression || activeExpressionRef.current === expression) {
+      return;
+    }
+
+    applyExpressionToModel(model, expression)
+      .then((ok) => {
+        if (ok) {
+          activeExpressionRef.current = expression;
+        }
+      })
+      .catch((expError: unknown) => {
+        console.warn('Failed to change expression:', expError);
+      });
+  }, [emotion, emotionSeed]);
 
   return (
     <div 
