@@ -31,34 +31,141 @@ export function Live2DCanvas({
   const [showDebug, setShowDebug] = useState(true);
   const [debugLog, setDebugLog] = useState<string[]>([]);
 
+  // NEW: Helper to get expression name → index mapping dari model
+  const getExpressionIndexMapping = (model: any): Record<string, number> => {
+    try {
+      const manager = model?.internalModel?.motionManager?.expressionManager;
+      if (!manager) {
+        console.warn('[Live2D] No expression manager found');
+        return {};
+      }
+
+      // Coba get dari expressions array - iterate dan find non-empty items
+      if (Array.isArray(manager.expressions)) {
+        const mapping: Record<string, number> = {};
+        manager.expressions.forEach((expr: any, idx: number) => {
+          // Each expression might have a name property
+          if (expr && typeof expr === 'object') {
+            // Try different property names for the expression name
+            const name = expr.name || expr._name || expr.fileName;
+            if (name) {
+              mapping[name] = idx;
+              console.log(`[Live2D] Mapped expression[${idx}] = ${name}`);
+            }
+          }
+        });
+        if (Object.keys(mapping).length > 0) {
+          console.log('[Live2D] ✅ Got expression mapping from array:', mapping);
+          return mapping;
+        }
+      }
+
+      // Fallback: try to build dari known model structure
+      const knownMapping: Record<string, number> = {
+        'bbt': 0,
+        'dyj': 1,
+        'h': 2,
+        'k': 3,
+        'lh': 4,
+        'lzx': 5,
+        'mj': 6,
+        'sq': 7,
+        'wh': 8,
+        'xxy': 9,
+        'y': 10,
+        'yf': 11,
+        'yfmz': 12,
+        'yjys1': 13,
+        'yjys2': 14,
+        'zs1': 15,
+      };
+      console.log('[Live2D] Using known expression mapping:', knownMapping);
+      return knownMapping;
+    } catch (e) {
+      console.error('[Live2D] Error getting expression mapping:', e);
+      return {};
+    }
+  };
+
+  // NEW: Helper to get available expression names dari model
+  const getAvailableExpressions = (model: any): string[] => {
+    const mapping = getExpressionIndexMapping(model);
+    return Object.keys(mapping);
+  };
+
+  // IMPROVED: Better expression application dengan INDEX-based approach
   const applyExpressionToModel = async (model: any, expression: string): Promise<boolean> => {
     if (!model || !expression) {
+      console.warn('[Live2D] Invalid model or expression:', { model: !!model, expression });
       return false;
     }
 
-    try {
-      if (typeof model.expression === 'function') {
-        const ok = await model.expression(expression);
-        if (ok) {
-          return true;
-        }
-      }
-    } catch (e) {
-      console.warn('model.expression failed:', e);
+    console.log(`[Live2D] Attempting to apply expression: "${expression}"`);
+
+    // Get expression name → index mapping
+    const mapping = getExpressionIndexMapping(model);
+    const expressionIndex = mapping[expression];
+    
+    if (expressionIndex === undefined) {
+      console.error(`[Live2D] ❌ Expression "${expression}" not found in mapping. Available: ${Object.keys(mapping).join(', ')}`);
+      return false;
     }
 
+    console.log(`[Live2D] Expression "${expression}" = index ${expressionIndex}`);
+
+    // Method 1: Using model.expression with INDEX
+    try {
+      if (typeof model.expression === 'function') {
+        console.log(`[Live2D] Trying Method 1: model.expression(${expressionIndex}) ...`);
+        const result = await model.expression(expressionIndex);
+        console.log(`[Live2D] ✅ Method 1 SUCCESS: Applied "${expression}" (index ${expressionIndex}), result=${result}`);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[Live2D] Method 1 failed:', e);
+    }
+
+    // Method 2: Using setExpressionIndex
+    try {
+      const manager = model.internalModel?.motionManager?.expressionManager;
+      if (manager && typeof manager.setExpressionIndex === 'function') {
+        console.log(`[Live2D] Trying Method 2: manager.setExpressionIndex(${expressionIndex})...`);
+        manager.setExpressionIndex(expressionIndex);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        console.log(`[Live2D] ✅ Method 2 SUCCESS: Applied "${expression}" (index ${expressionIndex})`);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[Live2D] Method 2 failed:', e);
+    }
+
+    // Method 3: Using setExpression with INDEX
     try {
       const manager = model.internalModel?.motionManager?.expressionManager;
       if (manager && typeof manager.setExpression === 'function') {
-        const ok = await manager.setExpression(expression);
-        if (ok) {
-          return true;
-        }
+        console.log(`[Live2D] Trying Method 3: manager.setExpression(${expressionIndex})...`);
+        manager.setExpression(expressionIndex);
+        await new Promise(resolve => setTimeout(resolve, 50));
+        console.log(`[Live2D] ✅ Method 3 SUCCESS: Applied "${expression}" (index ${expressionIndex})`);
+        return true;
       }
     } catch (e) {
-      console.warn('expressionManager.setExpression failed:', e);
+      console.warn('[Live2D] Method 3 failed:', e);
     }
 
+    // Method 4: Try with string NAME as fallback
+    try {
+      if (typeof model.expression === 'function') {
+        console.log(`[Live2D] Trying Method 4: model.expression("${expression}") as fallback...`);
+        await model.expression(expression);
+        console.log(`[Live2D] ✅ Method 4 SUCCESS: Applied "${expression}" (by name)`);
+        return true;
+      }
+    } catch (e) {
+      console.warn('[Live2D] Method 4 failed:', e);
+    }
+
+    console.error(`[Live2D] ❌ FAILED: Could not apply expression "${expression}". Available: ${Object.keys(mapping).join(', ')}`);
     return false;
   };
 
@@ -96,6 +203,8 @@ export function Live2DCanvas({
           return;
         }
 
+        console.log('[Live2D] Initializing Live2D Canvas...');
+
         // Wait for Cubism runtime to load
         let retries = 0;
         while (typeof (window as any).Live2DCubismCore === 'undefined' && retries < 50) {
@@ -107,10 +216,10 @@ export function Live2DCanvas({
           throw new Error('Live2D Cubism Core failed to load');
         }
 
-        // Import Cubism 4 entry so the plugin doesn't require Cubism 2 runtime (live2d.min.js).
+        console.log('[Live2D] Cubism Core loaded ✅');
+
         const { Live2DModel } = await import('pixi-live2d-display/cubism4');
 
-        // Support Pixi variants: v8 uses `init`, v6 uses constructor options.
         const initialWidth = Math.max(1, root.clientWidth);
         const initialHeight = Math.max(1, root.clientHeight);
 
@@ -144,7 +253,6 @@ export function Live2DCanvas({
         appCanvas.style.background = 'transparent';
         appCanvas.style.pointerEvents = 'none';
 
-        // Mount PIXI canvas to a dedicated host node managed outside React children.
         while (host.firstChild) {
           host.removeChild(host.firstChild);
         }
@@ -152,43 +260,44 @@ export function Live2DCanvas({
 
         appRef.current = app;
 
-        // Load Live2D model
+        console.log(`[Live2D] Loading model from: ${modelPath}`);
         const model = await Live2DModel.from(modelPath);
 
-        // Add model first, then compute immutable source bounds for stable relayout.
         app.stage.addChild(model as any);
         model.scale.set(1);
         model.visible = false;
+
+        console.log('[Live2D] Model loaded, checking expressions...');
+        const availableExpressions = getAvailableExpressions(model);
+        console.log(`[Live2D] Model has ${availableExpressions.length} expressions: ${availableExpressions.join(', ')}`);
 
         const sourceBounds = model.getLocalBounds();
         const sourceWidth = Math.max(1, sourceBounds.width);
         const sourceHeight = Math.max(1, sourceBounds.height);
 
         const layoutModel = () => {
-            const viewportWidth = Math.max(1, root.clientWidth);
-            const viewportHeight = Math.max(1, root.clientHeight);
-            const renderer = (app.renderer ?? app) as any;
+          const viewportWidth = Math.max(1, root.clientWidth);
+          const viewportHeight = Math.max(1, root.clientHeight);
+          const renderer = (app.renderer ?? app) as any;
 
-            if (renderer && typeof renderer.resize === 'function') {
-                renderer.resize(viewportWidth, viewportHeight);
-            }
+          if (renderer && typeof renderer.resize === 'function') {
+            renderer.resize(viewportWidth, viewportHeight);
+          }
 
-            // Fit model consistently in stage with headroom and footroom.
-            const usableWidth = viewportWidth * 0.75;
-            const usableHeight = viewportHeight * 0.98;
+          const usableWidth = viewportWidth * 0.75;
+          const usableHeight = viewportHeight * 0.98;
 
-            const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
-            const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
-            model.scale.set(safeScale);
+          const fitScale = Math.min(usableWidth / sourceWidth, usableHeight / sourceHeight);
+          const safeScale = Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 0.22;
+          model.scale.set(safeScale);
 
-            const centerX = viewportWidth / 2;
-            const floorY = viewportHeight * 0.97;
+          const centerX = viewportWidth / 2;
+          const floorY = viewportHeight * 0.97;
 
-            // Hard-center X and lock feet near bottom to avoid random jumps.
-            model.x = centerX - (sourceBounds.x + sourceWidth / 2) * safeScale;
-            model.y = floorY - (sourceBounds.y + sourceHeight) * safeScale;
+          model.x = centerX - (sourceBounds.x + sourceWidth / 2) * safeScale;
+          model.y = floorY - (sourceBounds.y + sourceHeight) * safeScale;
 
-            baseXRef.current = model.x;
+          baseXRef.current = model.x;
         };
 
         layoutModel();
@@ -200,21 +309,28 @@ export function Live2DCanvas({
 
         modelRef.current = model;
 
-        // Call callback if provided
         if (onModelLoaded) {
           onModelLoaded(model as any);
         }
 
         model.visible = true;
 
+        // IMPROVED: Wait longer and better initial expression setup
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         const initialExpression = pickExpressionForEmotion(emotion, emotionSeed || 'initial');
+        console.log(`[Live2D] Applying initial expression: ${initialExpression}`);
+        
         try {
           const applied = await applyExpressionToModel(model, initialExpression);
           if (applied) {
             activeExpressionRef.current = initialExpression;
+            console.log(`[Live2D] ✅ Initial expression set successfully`);
+          } else {
+            console.warn(`[Live2D] ⚠️ Initial expression may not have applied correctly`);
           }
         } catch (expError) {
-          console.warn('Failed to set initial expression:', expError);
+          console.error('[Live2D] Error setting initial expression:', expError);
         }
 
         setIsLoading(false);
@@ -222,9 +338,8 @@ export function Live2DCanvas({
         // Animation loop for idle + blink
         let elapsed = 0;
         const animate = () => {
-          elapsed += 16; // ~60fps
+          elapsed += 16;
 
-          // Simple idle animation - subtle sway
           if (model && app) {
             model.x = baseXRef.current + Math.sin(elapsed * 0.001) * 3;
           }
@@ -236,7 +351,7 @@ export function Live2DCanvas({
 
         (app as any).__live2dResizeObserver = resizeObserver;
       } catch (err) {
-        console.error('Failed to load Live2D model:', err);
+        console.error('[Live2D] Failed to load Live2D model:', err);
         setError(err instanceof Error ? err.message : 'Failed to load model');
         setIsLoading(false);
       }
@@ -245,7 +360,6 @@ export function Live2DCanvas({
     initializePixi();
 
     return () => {
-      // Cleanup
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -265,30 +379,41 @@ export function Live2DCanvas({
     };
   }, [modelPath, onModelLoaded]);
 
-  // Expose model for external control (animations, expressions, etc.)
+  // Expose model for external control
   useEffect(() => {
     (window as any).live2dModel = modelRef.current;
   }, []);
 
+  // IMPROVED: Expression change effect dengan better debugging
   useEffect(() => {
     const model = modelRef.current;
     if (!model) {
+      console.warn('[Live2D] Model not ready yet');
       return;
     }
 
     const expression = pickExpressionForEmotion(emotion, emotionSeed);
+    
+    console.log(`[Live2D] Expression change detected: emotion="${emotion}", expression="${expression}", activeExpression="${activeExpressionRef.current}"`);
+    
     if (!expression || activeExpressionRef.current === expression) {
+      console.log('[Live2D] Skipping: expression sama atau invalid');
       return;
     }
+
+    console.log(`[Live2D] Applying new expression: ${expression}`);
 
     applyExpressionToModel(model, expression)
       .then((ok) => {
         if (ok) {
           activeExpressionRef.current = expression;
+          console.log(`[Live2D] ✅ Expression updated successfully to: ${expression}`);
+        } else {
+          console.warn(`[Live2D] ⚠️ Expression application returned false`);
         }
       })
       .catch((expError: unknown) => {
-        console.warn('Failed to change expression:', expError);
+        console.error('[Live2D] Failed to change expression:', expError);
       });
   }, [emotion, emotionSeed]);
 

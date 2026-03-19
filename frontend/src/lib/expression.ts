@@ -9,7 +9,6 @@ const EMOTION_KEYWORDS: Record<CharacterEmotion, string[]> = {
   excited: ['wow', 'anjir', 'gila', 'seru', 'excited', 'let\'s go', '🔥', '!'],
 };
 
-// Expression names available in Alexia.model3.json
 const EXPRESSION_MAP: Record<CharacterEmotion, string[]> = {
   neutral: ['bbt', 'k', 'wh'],
   happy: ['h', 'xxy', 'y'],
@@ -53,6 +52,9 @@ export function detectAssistantEmotion(text: string): CharacterEmotion {
     return 'neutral';
   }
 
+  // DEBUG: Log detected emotion
+  console.log(`[Expression Debug] Detected emotion: ${best} (score: ${bestScore}) from text: "${text.substring(0, 50)}..."`);
+
   return best;
 }
 
@@ -72,5 +74,14 @@ export function pickExpressionForEmotion(emotion: CharacterEmotion, seedText = '
   }
 
   const idx = stringHash(`${emotion}:${seedText}`) % choices.length;
-  return choices[idx];
+  const selected = choices[idx];
+  
+  console.log(`[Expression Debug] Picked: "${selected}" from emotion "${emotion}" (available: ${choices.join(', ')})`);
+  
+  return selected;
+}
+
+// NEW: Helper untuk debug - list available expressions di model
+export function getAvailableExpressions(): Record<CharacterEmotion, string[]> {
+  return EXPRESSION_MAP;
 }
