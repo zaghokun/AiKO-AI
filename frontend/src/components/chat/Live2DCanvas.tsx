@@ -93,79 +93,76 @@ export function Live2DCanvas({
     return Object.keys(mapping);
   };
 
-  // IMPROVED: Better expression application dengan INDEX-based approach
+  const inspectModelParameters = (model: any, label: string) => {
+    try {
+      const params = model.internalModel?.parameters;
+      if (!params) return;
+
+      console.log(`\n🔍 [Parameters at ${label}]`);
+       
+      // Log relevant parameters (mata, mulut, ekspresi)
+      const importantParams = ['Param44', 'Param16', 'Param17', 'Param61', 'Param58', 'Param56', 'Param43', 'Param11'];
+      importantParams.forEach(paramId => {
+        const param = params.find((p: any) => p.id === paramId);
+        if (param) {
+          console.log(`  ${paramId}: ${param.value?.toFixed(2) ?? 'undefined'}`);
+        }
+      });
+    } catch (e) {
+      console.error('[Parameters] Inspection failed:', e);
+    }
+  };
+
   const applyExpressionToModel = async (model: any, expression: string): Promise<boolean> => {
-    if (!model || !expression) {
-      console.warn('[Live2D] Invalid model or expression:', { model: !!model, expression });
-      return false;
+    if (!model || !expression) return false;
+
+    console.log(`[Live2D] Applying expression: "${expression}"`);
+
+    const manager = model?.internalModel?.motionManager?.expressionManager;
+
+    // Method A: expressionManager dengan index (paling reliable di Cubism4)
+    if (manager) {
+      const mapping = getExpressionIndexMapping(model);
+      const index = mapping[expression];
+      if (index !== undefined) {
+        try {
+          // Reset dulu ke default supaya transisi visible
+          manager.resetExpression();
+          await new Promise(r => setTimeout(r, 50));
+          manager.setExpression(index);
+          console.log(`[Live2D] ✅ Applied "${expression}" via index ${index}`);
+          return true;
+        } catch (e) {
+          console.warn('[Live2D] expressionManager index failed:', e);
+        }
+      }
+
+      // Method B: setExpression dengan string name
+      if (typeof manager.setExpression === 'function') {
+        try {
+          manager.resetExpression();
+          await new Promise(r => setTimeout(r, 50));
+          manager.setExpression(expression);
+          console.log(`[Live2D] ✅ Applied "${expression}" via string name`);
+          return true;
+        } catch (e) {
+          console.warn('[Live2D] expressionManager string failed:', e);
+        }
+      }
     }
 
-    console.log(`[Live2D] Attempting to apply expression: "${expression}"`);
-
-    // Get expression name → index mapping
-    const mapping = getExpressionIndexMapping(model);
-    const expressionIndex = mapping[expression];
-    
-    if (expressionIndex === undefined) {
-      console.error(`[Live2D] ❌ Expression "${expression}" not found in mapping. Available: ${Object.keys(mapping).join(', ')}`);
-      return false;
-    }
-
-    console.log(`[Live2D] Expression "${expression}" = index ${expressionIndex}`);
-
-    // Method 1: Using model.expression with INDEX
+    // Method C: model.expression() sebagai fallback
     try {
       if (typeof model.expression === 'function') {
-        console.log(`[Live2D] Trying Method 1: model.expression(${expressionIndex}) ...`);
-        const result = await model.expression(expressionIndex);
-        console.log(`[Live2D] ✅ Method 1 SUCCESS: Applied "${expression}" (index ${expressionIndex}), result=${result}`);
-        return true;
-      }
-    } catch (e) {
-      console.warn('[Live2D] Method 1 failed:', e);
-    }
-
-    // Method 2: Using setExpressionIndex
-    try {
-      const manager = model.internalModel?.motionManager?.expressionManager;
-      if (manager && typeof manager.setExpressionIndex === 'function') {
-        console.log(`[Live2D] Trying Method 2: manager.setExpressionIndex(${expressionIndex})...`);
-        manager.setExpressionIndex(expressionIndex);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        console.log(`[Live2D] ✅ Method 2 SUCCESS: Applied "${expression}" (index ${expressionIndex})`);
-        return true;
-      }
-    } catch (e) {
-      console.warn('[Live2D] Method 2 failed:', e);
-    }
-
-    // Method 3: Using setExpression with INDEX
-    try {
-      const manager = model.internalModel?.motionManager?.expressionManager;
-      if (manager && typeof manager.setExpression === 'function') {
-        console.log(`[Live2D] Trying Method 3: manager.setExpression(${expressionIndex})...`);
-        manager.setExpression(expressionIndex);
-        await new Promise(resolve => setTimeout(resolve, 50));
-        console.log(`[Live2D] ✅ Method 3 SUCCESS: Applied "${expression}" (index ${expressionIndex})`);
-        return true;
-      }
-    } catch (e) {
-      console.warn('[Live2D] Method 3 failed:', e);
-    }
-
-    // Method 4: Try with string NAME as fallback
-    try {
-      if (typeof model.expression === 'function') {
-        console.log(`[Live2D] Trying Method 4: model.expression("${expression}") as fallback...`);
         await model.expression(expression);
-        console.log(`[Live2D] ✅ Method 4 SUCCESS: Applied "${expression}" (by name)`);
+        console.log(`[Live2D] ✅ Applied "${expression}" via model.expression()`);
         return true;
       }
     } catch (e) {
-      console.warn('[Live2D] Method 4 failed:', e);
+      console.warn('[Live2D] model.expression() failed:', e);
     }
 
-    console.error(`[Live2D] ❌ FAILED: Could not apply expression "${expression}". Available: ${Object.keys(mapping).join(', ')}`);
+    console.error(`[Live2D] ❌ All methods failed for "${expression}"`);
     return false;
   };
 
@@ -195,11 +192,14 @@ export function Live2DCanvas({
   useEffect(() => {
     if (!containerRef.current || !canvasHostRef.current) return;
 
+    // Guard: cegah double-init dari React StrictMode
+    let isMounted = true;
+
     const initializePixi = async () => {
       try {
         const root = containerRef.current;
         const host = canvasHostRef.current;
-        if (!root || !host) {
+        if (!root || !host || !isMounted) {
           return;
         }
 
@@ -219,6 +219,11 @@ export function Live2DCanvas({
         console.log('[Live2D] Cubism Core loaded ✅');
 
         const { Live2DModel } = await import('pixi-live2d-display/cubism4');
+        const { Ticker } = await import('pixi.js');
+
+        // CRITICAL: Harus register Ticker sebelum Live2DModel.from()
+        // tanpa ini model tidak di-update setiap frame → expression tidak render
+        Live2DModel.registerTicker(Ticker);
 
         const initialWidth = Math.max(1, root.clientWidth);
         const initialHeight = Math.max(1, root.clientHeight);
@@ -360,6 +365,7 @@ export function Live2DCanvas({
     initializePixi();
 
     return () => {
+      isMounted = false; // cegah async initializePixi lanjut setelah unmount
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -369,6 +375,9 @@ export function Live2DCanvas({
           resizeObserver.disconnect();
         }
         appRef.current.destroy(true);
+        appRef.current = null;
+        modelRef.current = null;
+        (window as any).live2dModel = null;
       }
 
       if (canvasHostRef.current) {
@@ -385,36 +394,30 @@ export function Live2DCanvas({
   }, []);
 
   // IMPROVED: Expression change effect dengan better debugging
+  // FIXED: Pakai callback ref pattern supaya selalu punya model terbaru
   useEffect(() => {
-    const model = modelRef.current;
-    if (!model) {
-      console.warn('[Live2D] Model not ready yet');
-      return;
-    }
+    // Delay sedikit untuk pastikan model sudah settle setelah load
+    const timer = setTimeout(() => {
+      const model = modelRef.current;
+      if (!model) {
+        console.warn('[Live2D] Model not ready, skipping expression change');
+        return;
+      }
 
-    const expression = pickExpressionForEmotion(emotion, emotionSeed);
-    
-    console.log(`[Live2D] Expression change detected: emotion="${emotion}", expression="${expression}", activeExpression="${activeExpressionRef.current}"`);
-    
-    if (!expression || activeExpressionRef.current === expression) {
-      console.log('[Live2D] Skipping: expression sama atau invalid');
-      return;
-    }
+      const expression = pickExpressionForEmotion(emotion, emotionSeed);
+      console.log(`[Live2D] Emotion "${emotion}" → expression "${expression}"`);
 
-    console.log(`[Live2D] Applying new expression: ${expression}`);
+      // Hapus guard activeExpressionRef agar setiap emotion change selalu di-apply
+      applyExpressionToModel(model, expression)
+        .then((ok) => {
+          if (ok) {
+            activeExpressionRef.current = expression;
+          }
+        })
+        .catch(console.error);
+    }, 100); // beri waktu 100ms untuk model settle
 
-    applyExpressionToModel(model, expression)
-      .then((ok) => {
-        if (ok) {
-          activeExpressionRef.current = expression;
-          console.log(`[Live2D] ✅ Expression updated successfully to: ${expression}`);
-        } else {
-          console.warn(`[Live2D] ⚠️ Expression application returned false`);
-        }
-      })
-      .catch((expError: unknown) => {
-        console.error('[Live2D] Failed to change expression:', expError);
-      });
+    return () => clearTimeout(timer);
   }, [emotion, emotionSeed]);
 
   return (
