@@ -28,6 +28,8 @@ export function Live2DCanvas({
   const activeExpressionRef = useRef<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(true);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
 
   const applyExpressionToModel = async (model: any, expression: string): Promise<boolean> => {
     if (!model || !expression) {
@@ -58,6 +60,29 @@ export function Live2DCanvas({
     }
 
     return false;
+  };
+
+  const testExpression = async (expression: string) => {
+    const model = modelRef.current;
+    if (!model) {
+      const msg = `❌ Model not loaded yet`;
+      console.error(msg);
+      setDebugLog(prev => [msg, ...prev.slice(0, 9)]);
+      return;
+    }
+
+    const msg = `Testing expression: ${expression}`;
+    console.log(msg);
+    setDebugLog(prev => [msg, ...prev.slice(0, 9)]);
+
+    const result = await applyExpressionToModel(model, expression);
+    const resultMsg = result ? `✅ ${expression} applied successfully` : `❌ ${expression} failed to apply`;
+    console.log(resultMsg);
+    setDebugLog(prev => [resultMsg, ...prev.slice(0, 9)]);
+
+    if (result) {
+      activeExpressionRef.current = expression;
+    }
   };
 
   useEffect(() => {
@@ -117,6 +142,7 @@ export function Live2DCanvas({
         appCanvas.style.height = '100%';
         appCanvas.style.display = 'block';
         appCanvas.style.background = 'transparent';
+        appCanvas.style.pointerEvents = 'none';
 
         // Mount PIXI canvas to a dedicated host node managed outside React children.
         while (host.firstChild) {
@@ -274,7 +300,7 @@ export function Live2DCanvas({
         filter: 'drop-shadow(0 20px 40px rgba(236, 72, 153, 0.28))',
       }}
     >
-      <div ref={canvasHostRef} className="absolute inset-0" />
+      <div ref={canvasHostRef} className="absolute inset-0 pointer-events-none" />
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-lg z-10">
           <div className="text-white text-sm">Loading Alexia...</div>
@@ -285,6 +311,130 @@ export function Live2DCanvas({
           <div className="text-red-200 text-sm text-center px-4">{error}</div>
         </div>
       )}
+
+      {/* DEBUG PANEL */}
+      <div className="absolute bottom-4 right-4 z-50 pointer-events-auto">
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="mb-2 px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded transition"
+        >
+          {showDebug ? 'Hide' : 'Show'} Debug
+        </button>
+
+        {showDebug && (
+          <div className="bg-black/90 border border-purple-500 rounded p-4 max-h-96 w-80 flex flex-col">
+            <div className="text-purple-400 text-xs font-bold mb-3">Expression Tester</div>
+
+            {/* Emotions Grid */}
+            <div className="flex-1 overflow-y-auto mb-3">
+              <div className="space-y-2 text-xs">
+                <div>
+                  <div className="text-purple-300 font-semibold">Happy</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['h', 'xxy', 'y'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-purple-300 font-semibold">Playful</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['dyj', 'lzx', 'yjys1'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-purple-300 font-semibold">Caring</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['yf', 'yfmz', 'mj'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-pink-600 hover:bg-pink-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-purple-300 font-semibold">Sad</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['lh', 'sq', 'zs1'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-purple-300 font-semibold">Excited</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['yjys2', 'h', 'xxy'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-purple-300 font-semibold">Neutral</div>
+                  <div className="flex gap-1 flex-wrap">
+                    {['bbt', 'k', 'wh'].map((expr) => (
+                      <button
+                        key={expr}
+                        onClick={() => testExpression(expr)}
+                        className="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs transition"
+                      >
+                        {expr}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Log Output */}
+            <div className="border-t border-purple-500 pt-2 max-h-20 overflow-y-auto">
+              <div className="text-yellow-400 text-xs font-mono space-y-1">
+                {debugLog.length === 0 ? (
+                  <div className="text-gray-500">Click a button to test...</div>
+                ) : (
+                  debugLog.map((log, i) => (
+                    <div key={i}>{log}</div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
